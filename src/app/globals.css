@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+/* --------------------------------------------------------------------------
+   Diapason - design system
+   Fond ivoire, texte bleu nuit, accent indigo, touches dorees sobres.
+   Les contrastes indiques sont mesures sur le fond ivoire (#FBF9F4).
+   -------------------------------------------------------------------------- */
+
+@theme {
+  /* Fonds */
+  --color-ivoire: #fbf9f4;
+  --color-ivoire-fonce: #f3efe6;
+  --color-surface: #ffffff;
+
+  /* Texte : 14.8:1 et 7.1:1 sur ivoire */
+  --color-nuit: #16213e;
+  --color-nuit-doux: #44506b;
+  --color-nuit-tres-doux: #6b7694;
+
+  /* Accent indigo : 7.9:1 sur ivoire */
+  --color-indigo-accent: #3f35b5;
+  --color-indigo-fonce: #2a2480;
+  --color-indigo-clair: #eceafb;
+
+  /* Or : reserve aux filets et aux aplats, pas au texte fin */
+  --color-or: #7a5a1c;
+  --color-or-clair: #d9b872;
+  --color-or-pale: #f7efdd;
+
+  /* Etats. Chaque etat a aussi un libelle : jamais la couleur seule. */
+  --color-dispo-texte: #14532d;
+  --color-dispo-fond: #dcfce7;
+  --color-indispo-texte: #9f1239;
+  --color-indispo-fond: #ffe4e6;
+  --color-attente-texte: #3f4a5f;
+  --color-attente-fond: #eef1f6;
+  --color-alerte-texte: #7c3c00;
+  --color-alerte-fond: #fdf0d9;
+
+  --color-bordure: #e3ddd0;
+  --color-bordure-forte: #cfc6b4;
+
+  --font-sans:
+    "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial,
+    sans-serif;
+
+  /* Unite d'espacement de 4 px. Les ecrans utilisent des multiples pairs
+     (2, 4, 6, 8...), ce qui donne la grille de 8 px annoncee. */
+  --spacing: 0.25rem;
+
+  --radius-doux: 0.625rem;
+  --radius-carte: 0.875rem;
+
+  --shadow-carte: 0 1px 2px rgb(22 33 62 / 0.06), 0 1px 3px rgb(22 33 62 / 0.04);
+  --shadow-flottant: 0 8px 24px rgb(22 33 62 / 0.12);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  * {
+    border-color: var(--color-bordure);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-ivoire);
+    color: var(--color-nuit);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.55;
+    margin: 0;
+    /* Encoches et barre de navigation basse sur mobile */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Focus clavier toujours visible, sur fond clair comme sur fond indigo. */
+  :focus-visible {
+    outline: 3px solid var(--color-indigo-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  [data-sur-fond-fonce]:focus-visible {
+    outline-color: #ffffff;
+  }
+
+  /* Respecte la preference de reduction des mouvements. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Cible tactile confortable : environ 44 px, sans en faire une regle AA. */
+  button,
+  [role="button"],
+  a.cible,
+  input[type="checkbox"],
+  input[type="radio"] {
+    touch-action: manipulation;
+  }
+}
+
+@layer components {
+  .lien-saut {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    background: var(--color-surface);
+    color: var(--color-nuit);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-doux);
+    box-shadow: var(--shadow-flottant);
+  }
+
+  .lien-saut:focus {
+    left: 1rem;
+    top: 1rem;
+  }
+
+  /* Conteneur de grille large : defile dans sa boite, jamais la page. */
+  .grille-defilante {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .grille-defilante table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .grille-defilante thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--color-surface);
+  }
+
+  .grille-defilante .colonne-figee {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--color-surface);
+  }
+
+  .grille-defilante thead .colonne-figee {
+    z-index: 4;
+  }
+}
+
+@media print {
+  .sans-impression {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  .grille-defilante {
+    overflow: visible;
+  }
+}
