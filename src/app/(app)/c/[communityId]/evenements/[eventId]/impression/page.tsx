@@ -27,7 +27,9 @@ export default async function PageImpression({
   const vue = detail.value;
 
   return (
-    <article className="mx-auto max-w-3xl space-y-6 bg-white p-2 print:p-0">
+    // `feuille-impression` force la palette claire : un fond sombre ne
+    // s'imprime pas, et cette page est faite pour etre posee sur un pupitre.
+    <article className="feuille-impression mx-auto max-w-3xl space-y-6 rounded-[var(--radius-carte)] p-4 print:p-0">
       <header className="border-b border-bordure pb-4">
         <p className="text-xs uppercase tracking-wide text-nuit-doux">
           {BRAND.name} - {BRAND.context}

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -238,14 +238,14 @@ export function Shell({
                       className={cn(
                         "inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm",
                         estActif(lien.href)
-                          ? "bg-indigo-accent text-white"
+                          ? "bg-indigo-accent text-sur-accent"
                           : "bg-ivoire-fonce text-nuit-doux",
                       )}
                       aria-current={estActif(lien.href) ? "page" : undefined}
                     >
                       {lien.label}
                       {lien.badge ? (
-                        <span className="rounded-full bg-white/90 px-1.5 text-xs font-semibold text-indigo-fonce">
+                        <span className="rounded-full bg-sur-accent/90 px-1.5 text-xs font-semibold text-indigo-accent">
                           {lien.badge}
                         </span>
                       ) : null}
@@ -284,7 +284,7 @@ export function Shell({
                     <span className="relative">
                       <Icone aria-hidden="true" className="size-5" />
                       {lien.badge ? (
-                        <span className="absolute -right-2 -top-1 rounded-full bg-indispo-texte px-1 text-[0.6rem] font-semibold text-white">
+                        <span className="absolute -right-2 -top-1 rounded-full bg-indispo-fond px-1 text-[0.6rem] font-semibold text-indispo-texte">
                           {lien.badge > 9 ? "9+" : lien.badge}
                         </span>
                       ) : null}

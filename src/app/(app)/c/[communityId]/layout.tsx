@@ -52,7 +52,7 @@ export default async function CommunityLayout({
             action={
               <Link
                 href="/communautes"
-                className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-white"
+                className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-sur-accent"
               >
                 Aller au catalogue
               </Link>

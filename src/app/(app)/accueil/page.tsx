@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, CalendarCheck2, MessageSquare, ShieldAlert } from "lucide-react";
 import { formatDateLong, formatTime } from "@/lib/time";
@@ -58,7 +58,7 @@ export default async function PageAccueil() {
               action={
                 <Link
                   href="/communautes"
-                  className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-white"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-sur-accent"
                 >
                   Voir le catalogue <ArrowRight aria-hidden="true" className="size-4" />
                 </Link>

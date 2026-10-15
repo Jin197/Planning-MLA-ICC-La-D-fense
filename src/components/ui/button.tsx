@@ -8,8 +8,10 @@ type Variant = "principal" | "secondaire" | "discret" | "danger";
 type Taille = "normal" | "compact";
 
 const VARIANTES: Record<Variant, string> = {
+  // `sur-accent` vaut blanc en theme clair et bleu nuit en theme sombre :
+  // l'aplat d'accent porte toujours un texte lisible.
   principal:
-    "bg-indigo-accent text-white hover:bg-indigo-fonce border border-transparent",
+    "bg-indigo-accent text-sur-accent hover:bg-indigo-fonce border border-transparent",
   secondaire:
     "bg-surface text-nuit border border-bordure-forte hover:bg-ivoire-fonce",
   discret:

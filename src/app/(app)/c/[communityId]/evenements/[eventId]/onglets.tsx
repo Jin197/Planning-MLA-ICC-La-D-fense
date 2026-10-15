@@ -45,7 +45,7 @@ export function OngletsEvenement({
                 >
                   {onglet.label}
                   {onglet.id === "discussion" && messagesNonLus > 0 ? (
-                    <span className="rounded-full bg-indigo-accent px-1.5 text-xs font-semibold text-white">
+                    <span className="rounded-full bg-indigo-accent px-1.5 text-xs font-semibold text-sur-accent">
                       {messagesNonLus}
                     </span>
                   ) : null}

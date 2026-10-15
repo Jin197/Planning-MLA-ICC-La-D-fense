@@ -1,26 +1,36 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 /* --------------------------------------------------------------------------
    Diapason - design system
-   Fond ivoire, texte bleu nuit, accent indigo, touches dorees sobres.
-   Les contrastes indiques sont mesures sur le fond ivoire (#FBF9F4).
+
+   Deux palettes, un seul jeu de jetons. Les composants n'ont aucune variante
+   `dark:` : seules les valeurs des jetons changent, ce qui evite d'avoir deux
+   verites a maintenir.
+
+   Palette sombre par defaut (bleu nuit). Les contrastes indiques sont
+   calcules selon la formule WCAG, fond de carte pour la palette sombre et
+   fond ivoire pour la palette claire.
    -------------------------------------------------------------------------- */
 
 @theme {
+  /* --- Palette claire (declaree ici, donc disponible par defaut) --------- */
+
   /* Fonds */
   --color-ivoire: #fbf9f4;
   --color-ivoire-fonce: #f3efe6;
   --color-surface: #ffffff;
 
-  /* Texte : 14.8:1 et 7.1:1 sur ivoire */
+  /* Texte : 14,8:1 / 7,1:1 / 4,6:1 sur ivoire */
   --color-nuit: #16213e;
   --color-nuit-doux: #44506b;
   --color-nuit-tres-doux: #6b7694;
 
-  /* Accent indigo : 7.9:1 sur ivoire */
+  /* Accent indigo : 7,9:1 sur ivoire */
   --color-indigo-accent: #3f35b5;
   --color-indigo-fonce: #2a2480;
   --color-indigo-clair: #eceafb;
+  /* Texte pose sur un aplat d'accent : 8,6:1 */
+  --color-sur-accent: #ffffff;
 
   /* Or : reserve aux filets et aux aplats, pas au texte fin */
   --color-or: #7a5a1c;
@@ -55,9 +65,69 @@
   --shadow-flottant: 0 8px 24px rgb(22 33 62 / 0.12);
 }
 
+/* --------------------------------------------------------------------------
+   Palette sombre
+
+   Les memes jetons, d'autres valeurs. Le serveur pose toujours
+   `data-theme="dark"` ou `data-theme="light"` sur <html>, selon la preference
+   enregistree dans un cookie. Deux consequences voulues :
+
+    - aucun scintillement au chargement, puisque le theme est decide avant le
+      premier rendu ;
+    - un seul bloc de valeurs sombres a maintenir, au lieu d'un doublon pour
+      `prefers-color-scheme`. Suivre la preference du systeme reste possible
+      plus tard, au prix de cette duplication.
+   -------------------------------------------------------------------------- */
+
+:root[data-theme="dark"] {
+  /* Fonds : la page est plus sombre que les cartes, qui ressortent. */
+  --color-ivoire: #101729;
+  --color-ivoire-fonce: #1a2440;
+  --color-surface: #16213e;
+
+  /* Texte : 13,8:1 / 8,9:1 / 5,4:1 sur la surface des cartes */
+  --color-nuit: #f2efe6;
+  --color-nuit-doux: #b9c2d6;
+  --color-nuit-tres-doux: #8d97ae;
+
+  /* Accent : 8,8:1 sur le fond de page, en texte comme en aplat. */
+  --color-indigo-accent: #a5b4fc;
+  --color-indigo-fonce: #c7d2fe;
+  --color-indigo-clair: #222e52;
+  /* Sur fond sombre, un aplat d'accent porte du texte sombre : 8,8:1 */
+  --color-sur-accent: #101729;
+
+  /* Or : 9,5:1 en texte sur les cartes */
+  --color-or: #e3c583;
+  --color-or-clair: #c9a765;
+  --color-or-pale: #2a2113;
+
+  /* Etats : 9,6:1 / 8,2:1 / 10,2:1 / 9,6:1 */
+  --color-dispo-texte: #86efac;
+  --color-dispo-fond: #123524;
+  --color-indispo-texte: #fda4af;
+  --color-indispo-fond: #3f1620;
+  --color-attente-texte: #cbd5e1;
+  --color-attente-fond: #1e2639;
+  --color-alerte-texte: #fcd34d;
+  --color-alerte-fond: #3a2a10;
+
+  /* Bordure forte a 3,1:1 sur les cartes : requis pour les champs de
+     formulaire et les composants d'interface. */
+  --color-bordure: #33405e;
+  --color-bordure-forte: #5d6d92;
+
+  --shadow-carte: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 3px rgb(0 0 0 / 0.3);
+  --shadow-flottant: 0 8px 24px rgb(0 0 0 / 0.55);
+}
+
 @layer base {
   :root {
     color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
   }
 
   * {
@@ -96,7 +166,7 @@
   }
 
   [data-sur-fond-fonce]:focus-visible {
-    outline-color: #ffffff;
+    outline-color: var(--color-sur-accent);
   }
 
   /* Respecte la preference de reduction des mouvements. */
@@ -168,6 +238,26 @@
   .grille-defilante thead .colonne-figee {
     z-index: 4;
   }
+
+  /*
+   * Feuille destinee a l'impression ou a la lecture sur papier : elle garde
+   * la palette claire quel que soit le theme choisi, parce qu'un fond sombre
+   * ne s'imprime pas.
+   */
+  .feuille-impression {
+    --color-ivoire: #fbf9f4;
+    --color-ivoire-fonce: #f3efe6;
+    --color-surface: #ffffff;
+    --color-nuit: #16213e;
+    --color-nuit-doux: #44506b;
+    --color-nuit-tres-doux: #6b7694;
+    --color-indigo-accent: #3f35b5;
+    --color-sur-accent: #ffffff;
+    --color-bordure: #cfc6b4;
+    --color-bordure-forte: #a99e88;
+    background: #ffffff;
+    color: #16213e;
+  }
 }
 
 @media print {
@@ -177,6 +267,7 @@
 
   body {
     background: #ffffff;
+    color: #16213e;
   }
 
   .grille-defilante {

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import type { Metadata } from "next";
 import { Search } from "lucide-react";
 import { listCatalogue } from "@/server/services/communities";
@@ -41,7 +41,7 @@ export default async function PageCommunautes({
         {session.profile.onboardingChoice === "responsable" ? (
           <Link
             href="/communautes/nouvelle"
-            className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-white"
+            className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-sur-accent"
           >
             Creer une communaute
           </Link>

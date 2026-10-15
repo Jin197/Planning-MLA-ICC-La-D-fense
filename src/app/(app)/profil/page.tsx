@@ -11,6 +11,8 @@ import {
   CardBody,
   CardHeader,
 } from "@/components/ui/primitives";
+import { readTheme } from "@/server/theme";
+import { Apparence } from "./apparence";
 import { FormulaireProfil } from "./formulaire";
 
 export const metadata: Metadata = { title: "Mon profil" };
@@ -18,6 +20,7 @@ export const metadata: Metadata = { title: "Mon profil" };
 export default async function PageProfil() {
   const session = await requireSession();
   const nav = await loadNavigation();
+  const theme = await readTheme();
 
   return (
     <div className="space-y-6">
@@ -99,6 +102,8 @@ export default async function PageProfil() {
           )}
         </CardBody>
       </Card>
+
+      <Apparence actuel={theme} />
 
       <Card>
         <CardHeader titre="Securite du compte" />

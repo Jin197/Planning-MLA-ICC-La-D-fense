@@ -38,7 +38,7 @@ export function SelecteurVue({
                 className={cn(
                   "inline-flex min-h-9 items-center rounded-[calc(var(--radius-doux)-2px)] px-3 text-sm",
                   vue === v.id
-                    ? "bg-indigo-accent font-medium text-white"
+                    ? "bg-indigo-accent font-medium text-sur-accent"
                     : "text-nuit-doux hover:bg-ivoire-fonce",
                 )}
               >

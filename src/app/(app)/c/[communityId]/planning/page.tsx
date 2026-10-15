@@ -54,7 +54,7 @@ export default async function PagePlanning({
           {planning.estAdmin ? (
             <Link
               href={`/c/${communityId}/evenements/nouveau`}
-              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-white"
+              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-sur-accent"
             >
               <CalendarPlus aria-hidden="true" className="size-4" />
               Nouvel evenement
@@ -104,7 +104,7 @@ export default async function PagePlanning({
                 planning.estAdmin ? (
                   <Link
                     href={`/c/${communityId}/evenements/nouveau`}
-                    className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-white"
+                    className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-sur-accent"
                   >
                     Creer un evenement
                   </Link>

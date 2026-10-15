@@ -380,6 +380,79 @@ test.describe("accessibilite et lisibilite", () => {
   });
 });
 
+test.describe("apparence", () => {
+  /** Couleur de fond effectivement calculee par le navigateur. */
+  async function fondDuCorps(page: Page): Promise<string> {
+    return page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  }
+
+  test("le theme sombre est applique par defaut", async ({ page }) => {
+    await connexion(page, "noa.bertrand@exemple.test");
+
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    // #101729
+    expect(await fondDuCorps(page)).toBe("rgb(16, 23, 41)");
+  });
+
+  test("le choix clair est applique et conserve d'une page a l'autre", async ({
+    page,
+  }) => {
+    await connexion(page, "noa.bertrand@exemple.test");
+    await page.goto("/profil");
+    await expect(page.getByRole("heading", { name: "Apparence" })).toBeVisible();
+
+    await cliquerApresHydratation(
+      page.getByRole("button", { name: /Clair/ }),
+      page.getByText(/Apparence claire appliquee/),
+    );
+
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    // #fbf9f4
+    expect(await fondDuCorps(page)).toBe("rgb(251, 249, 244)");
+
+    // La preference suit la navigation.
+    await page.goto(urlPlanning());
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  });
+
+  test("les statuts restent lisibles dans le theme sombre", async ({ page }) => {
+    await connexion(page, "noa.bertrand@exemple.test");
+    await page.goto(urlPlanning("tableau"));
+
+    const badge = page
+      .getByText("Disponible")
+      .filter({ visible: true })
+      .first();
+    await expect(badge).toBeVisible();
+
+    // Le libelle est ecrit, et sa couleur n'est pas celle du fond.
+    const couleurs = await badge.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { texte: style.color, fond: style.backgroundColor };
+    });
+    expect(couleurs.texte).not.toBe(couleurs.fond);
+  });
+
+  test("la version imprimable reste claire meme en theme sombre", async ({
+    page,
+  }) => {
+    await connexion(page, "noa.bertrand@exemple.test");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+    const cible = urlEvenement("Cultes du dimanche 18 octobre");
+    await page.goto(`${cible}/impression`);
+
+    const feuille = page.locator(".feuille-impression");
+    await expect(feuille).toBeVisible();
+    const couleurs = await feuille.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { texte: style.color, fond: style.backgroundColor };
+    });
+    expect(couleurs.fond).toBe("rgb(255, 255, 255)");
+    expect(couleurs.texte).toBe("rgb(22, 33, 62)");
+  });
+});
+
 test.describe("confidentialite", () => {
   test("un membre ne voit pas le motif d'un autre", async ({ page }) => {
     await connexion(page, "elias.marchand@exemple.test");
