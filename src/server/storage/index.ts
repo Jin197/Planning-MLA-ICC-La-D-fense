@@ -38,7 +38,10 @@ function racine(): string {
  */
 function cheminSur(path: string): string | null {
   const base = racine();
-  const complet = normalize(join(base, path));
+  // `turbopackIgnore` : le chemin est calcule a l'execution, et l'analyse
+  // statique tracerait sinon tout le projet comme dependance du build. La
+  // verification ci-dessous garantit qu'il reste sous `base`.
+  const complet = normalize(join(/* turbopackIgnore: true */ base, path));
   if (complet !== base && !complet.startsWith(base + sep)) return null;
   return complet;
 }

@@ -53,13 +53,14 @@ Contrastes calcules sur le fond ivoire `#fbf9f4`.
 | `--color-surface` | `#ffffff` | — | Cartes |
 | `--color-nuit` | `#16213e` | **14,8:1** | Texte principal |
 | `--color-nuit-doux` | `#44506b` | **7,1:1** | Texte secondaire |
-| `--color-nuit-tres-doux` | `#6b7694` | **4,6:1** | Mentions discretes, texte non essentiel |
+| `--color-nuit-tres-doux` | `#646e8a` | **4,8:1** | Mentions discretes, texte non essentiel |
 | `--color-indigo-accent` | `#3f35b5` | **7,9:1** | Accent, boutons principaux, liens |
 | `--color-indigo-fonce` | `#2a2480` | 11,3:1 | Survol, texte sur fond indigo clair |
 | `--color-indigo-clair` | `#eceafb` | — | Fond d'accent |
 | `--color-or` | `#7a5a1c` | **5,9:1** | Touches dorees, texte dore |
 | `--color-or-clair` | `#d9b872` | — | Filets decoratifs **uniquement** |
-| `--color-bordure` | `#e3ddd0` | — | Bordures |
+| `--color-bordure` | `#e2e2e2` | — | Bords de cadre et separateurs |
+| `--color-bordure-forte` | `#8a8a8a` | **3,5:1** | Champs et composants d'interface |
 | `--color-sur-accent` | `#ffffff` | 8,6:1 sur l'accent | Texte pose sur un aplat d'accent |
 
 Les trois couleurs de texte depassent 4,5:1 ; les deux premieres depassent 7:1.
@@ -86,10 +87,16 @@ avoir besoin d'ombres marquees.
 | `--color-sur-accent` | `#101729` | **8,8:1** sur l'accent | Texte pose sur un aplat d'accent |
 | `--color-or` | `#e3c583` | **9,5:1** | Touches dorees, texte dore |
 | `--color-or-clair` | `#c9a765` | — | Filets decoratifs |
-| `--color-bordure` | `#33405e` | — | Separateurs |
-| `--color-bordure-forte` | `#5d6d92` | **3,1:1** | Champs et composants d'interface |
+| `--color-bordure` | `#3a3a3a` | — | Bords de cadre et separateurs |
+| `--color-bordure-forte` | `#707070` | **3,2:1** | Champs et composants d'interface |
 
-Deux points ont demande une decision :
+Trois points ont demande une decision :
+
+- **Les bords de cadre sont achromatiques dans les deux palettes.** Un cadre
+  se dessine par une valeur de gris, pas par une teinte : les seules couleurs
+  de l'interface sont alors porteuses de sens — l'accent, l'or, et les quatre
+  etats. Les bords beiges et bleu-gris d'avant entraient en concurrence avec
+  elles.
 
 - **Le texte pose sur un aplat d'accent change de couleur selon le theme.**
   En clair, l'accent est un indigo fonce qui porte du blanc. En sombre,
@@ -207,12 +214,24 @@ Les cibles tactiles visent environ **44 px**, comme choix de confort. Ce n'est
 pas presente comme la regle universelle du niveau AA : le critere
 « Target Size (Minimum) » de WCAG 2.2 demande 24 px avec des exceptions.
 
+### Contrastes verifies automatiquement
+
+Les valeurs de ce document ne sont pas declaratives : `tests/unit/contrastes.test.ts`
+les recalcule depuis `globals.css` a chaque execution de la suite. 24
+controles couvrent, pour les deux palettes, le texte principal (7:1), le texte
+secondaire et les mentions (4,5:1), l'accent, l'or, les quatre couples
+d'etat, la bordure des champs (3:1) et le caractere achromatique des bords.
+
+Ce test a d'ailleurs trouve un defaut reel : en palette claire, les mentions
+discretes etaient a 4,30:1, sous le seuil, alors que ce document annoncait
+4,6:1. La couleur a ete corrigee.
+
 ### Ce qui n'a pas ete verifie
 
-Aucun audit automatise (axe, Lighthouse) n'a ete execute : le reseau de ce
-poste bloque le telechargement de l'outillage correspondant. Les contrastes
-ont ete calcules a la main, les parcours clavier testes au navigateur, mais un
-audit complet reste a faire — notamment avec un lecteur d'ecran reel.
+Aucun audit automatise de bout en bout (axe, Lighthouse) n'a ete execute : le
+reseau de ce poste bloque le telechargement de l'outillage correspondant. Les
+parcours clavier sont testes au navigateur, mais un audit complet reste a
+faire — notamment avec un lecteur d'ecran reel.
 
 Le respect de `prefers-color-scheme` n'est pas implemente : voir la section
 sur les deux palettes pour la raison.

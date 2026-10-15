@@ -20,10 +20,10 @@
   --color-ivoire-fonce: #f3efe6;
   --color-surface: #ffffff;
 
-  /* Texte : 14,8:1 / 7,1:1 / 4,6:1 sur ivoire */
+  /* Texte : 14,8:1 / 7,1:1 / 4,8:1 sur ivoire */
   --color-nuit: #16213e;
   --color-nuit-doux: #44506b;
-  --color-nuit-tres-doux: #6b7694;
+  --color-nuit-tres-doux: #646e8a;
 
   /* Accent indigo : 7,9:1 sur ivoire */
   --color-indigo-accent: #3f35b5;
@@ -47,8 +47,12 @@
   --color-alerte-texte: #7c3c00;
   --color-alerte-fond: #fdf0d9;
 
-  --color-bordure: #e3ddd0;
-  --color-bordure-forte: #cfc6b4;
+  /* Bords achromatiques : les cadres se dessinent par une valeur de gris, pas
+     par une teinte, pour ne pas concurrencer les couleurs de statut.
+     `bordure-forte` tient 3,5:1 sur les cartes, seuil des champs de
+     formulaire et des composants d'interface. */
+  --color-bordure: #e2e2e2;
+  --color-bordure-forte: #8a8a8a;
 
   --font-sans:
     "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial,
@@ -112,10 +116,10 @@
   --color-alerte-texte: #fcd34d;
   --color-alerte-fond: #3a2a10;
 
-  /* Bordure forte a 3,1:1 sur les cartes : requis pour les champs de
-     formulaire et les composants d'interface. */
-  --color-bordure: #33405e;
-  --color-bordure-forte: #5d6d92;
+  /* Bords achromatiques ici aussi. `bordure-forte` tient 3,2:1 sur les
+     cartes, seuil des champs et des composants d'interface. */
+  --color-bordure: #3a3a3a;
+  --color-bordure-forte: #707070;
 
   --shadow-carte: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 3px rgb(0 0 0 / 0.3);
   --shadow-flottant: 0 8px 24px rgb(0 0 0 / 0.55);
