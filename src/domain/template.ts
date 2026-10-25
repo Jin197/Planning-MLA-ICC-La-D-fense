@@ -146,12 +146,21 @@ export function toField(
  * stable du champ d'origine et un instantane de son libelle : renommer le
  * modele plus tard ne reecrit pas les plans existants.
  */
+/**
+ * Copie les postes du modele dans un plan.
+ *
+ * `retenus` limite la copie aux postes dont l'equipe a besoin : une equipe de
+ * chant n'a pas de poste technique, et l'admin les choisit a la creation.
+ * Vide ou absent, tout le modele est copie.
+ */
 export function copyTemplateIntoPlan(
   fields: readonly TemplateField[],
-  ctx: { communityId: Id; planId: Id },
+  ctx: { communityId: Id; planId: Id; retenus?: readonly Id[] },
 ): EventRoleSlot[] {
+  const retenus = ctx.retenus ?? [];
   return fields
     .filter((f) => f.assignable && f.archivedAt === null)
+    .filter((f) => retenus.length === 0 || retenus.includes(f.id))
     .sort((a, b) => a.order - b.order)
     .map((f) => ({
       id: newId(),

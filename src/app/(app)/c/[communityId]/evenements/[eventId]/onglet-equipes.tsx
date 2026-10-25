@@ -25,10 +25,12 @@ export function OngletEquipes({
   communityId,
   vue,
   membres,
+  postes,
 }: {
   communityId: string;
   vue: EventDetail;
   membres: { membershipId: string; name: string }[];
+  postes: { id: string; label: string; minRequired: number }[];
 }) {
   if (!vue.canSeePlan) {
     return (
@@ -60,6 +62,7 @@ export function OngletEquipes({
             equipes={vue.teams}
             sousEvenements={sousEvenements}
             membres={membres}
+            postes={postes}
           />
           <AjouterSousEvenement
             communityId={communityId}

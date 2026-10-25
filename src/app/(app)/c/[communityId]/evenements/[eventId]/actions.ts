@@ -6,6 +6,7 @@ import {
   assignMember,
   listCandidates,
   removeAssignment,
+  selfAssign,
   setAssignmentState,
   type CandidateView,
 } from "@/server/services/assignments";
@@ -189,6 +190,28 @@ export async function actionEtatAffectation(
       : cible === "a_remplacer"
         ? "Empechement signale. Les admins sont prevenus et l'affectation est marquee a remplacer."
         : "Affectation mise a jour.",
+  );
+}
+
+/**
+ * Un membre prend lui-meme un poste ouvert. Les regles — disponibilite
+ * declaree, poste encore ouvert, pas de chevauchement — sont verifiees par le
+ * service : il n'y a ici aucun admin pour accepter une exception.
+ */
+export async function actionSePositionner(
+  _etat: FormState,
+  data: FormData,
+): Promise<FormState> {
+  const communityId = texte(data, "communityId");
+  const eventId = texte(data, "eventId");
+  const result = await selfAssign(communityId, {
+    slotId: texte(data, "slotId"),
+    detail: texteOuNull(data, "detail"),
+  });
+  if (!result.ok) return echec(result.message);
+  rafraichir(communityId, eventId);
+  return succes(
+    "Vous etes positionne sur ce poste. Les admins en sont informes ; vous pouvez encore signaler un empechement.",
   );
 }
 
@@ -380,6 +403,8 @@ export async function actionCreerEquipe(
     name: texte(data, "nom"),
     membershipIds: liste(data, "membres"),
     sessionIds: liste(data, "sessionIds"),
+    // Aucun poste coche : l'equipe reprend tout le modele.
+    templateFieldIds: liste(data, "postes"),
     expectedVersion: nombre(data, "version"),
   });
   if (!result.ok) {

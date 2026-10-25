@@ -113,6 +113,8 @@ export async function actionCreerEvenement(
         .getAll(`equipeSousEvenements-${index}`)
         .map((value) => Number(String(value)))
         .filter((ordinal) => Number.isInteger(ordinal) && ordinal > 0),
+      // Aucun poste coche : l'equipe reprend tout le modele.
+      templateFieldIds: data.getAll(`equipePostes-${index}`).map(String),
     });
   }
   if (teams.length === 0) {

@@ -121,6 +121,7 @@ export const NOTIFICATION_TITLES: Record<NotificationKind, string> = {
   evenement_annule: "Evenement annule",
   rappel: "Rappel",
   message_nouveau: "Nouveau message",
+  positionnement: "Un membre s'est positionne",
 };
 
 /** Un email de groupe ne contient jamais un motif prive. */

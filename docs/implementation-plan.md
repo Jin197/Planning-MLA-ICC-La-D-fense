@@ -22,6 +22,8 @@ Legende : **fait** = implemente et verifie par un test ou au navigateur ;
 | Evenements, sous-evenements, equipes | fait | Sous-evenements **facultatifs** (0..n), equipes creees dans l'evenement en nombre libre, rattachees a un sous-evenement ou a toute la duree, **ajout apres coup** |
 | Repetitions | fait | Franchissement de minuit et changement d'heure testes |
 | Disponibilites par occurrence | fait | Reponses differentes aux cultes 1 et 2 ; une seule reponse quand l'evenement n'a pas de sous-evenement |
+| Positionnement par le membre | fait | Un membre disponible prend un poste ouvert ; la composition en preparation reste masquee |
+| Postes retenus par equipe | fait | L'admin coche les postes dont chaque equipe a besoin |
 | Motifs prives | fait | Table separee, RLS dediee, verifie par service et au navigateur |
 | Affectations multiples, exceptions | fait | Doublons refuses, motif administratif exige |
 | Publication avec controles | fait | Bloquants, alertes, confirmation explicite |

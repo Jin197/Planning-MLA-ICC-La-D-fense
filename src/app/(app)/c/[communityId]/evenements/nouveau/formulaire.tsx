@@ -62,9 +62,12 @@ const MODELE_DIMANCHE: Omit<LigneCreneau, "cle">[] = [
 export function FormulaireEvenement({
   communityId,
   membres,
+  postes,
 }: {
   communityId: string;
   membres: { membershipId: string; name: string }[];
+  /** Postes du modele de la communaute, a retenir equipe par equipe. */
+  postes: { id: string; label: string; minRequired: number }[];
 }) {
   const [etat, action] = useActionState(actionCreerEvenement, ETAT_INITIAL);
   const [creneaux, setCreneaux] = useState<LigneCreneau[]>([]);
@@ -385,6 +388,46 @@ export function FormulaireEvenement({
                     maxLength={80}
                   />
                 </Champ>
+
+                {postes.length > 0 ? (
+                  <fieldset>
+                    <legend className="text-sm font-medium">
+                      Postes dont cette equipe a besoin
+                    </legend>
+                    <p className="mt-1 text-xs text-nuit-doux">
+                      Cochez ce qui est attendu. Sans selection, tous les postes
+                      du modele sont repris. Les postes attendus par le modele
+                      sont deja coches.
+                    </p>
+                    <ul className="mt-2 grid gap-2 sm:grid-cols-3">
+                      {postes.map((poste) => (
+                        <li key={poste.id}>
+                          <label className="flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-surface px-3 text-sm">
+                            <input
+                              type="checkbox"
+                              name={`equipePostes-${index}`}
+                              value={poste.id}
+                              defaultChecked={poste.minRequired > 0}
+                              className="size-5"
+                            />
+                            <span className="min-w-0">
+                              <span className="block truncate">{poste.label}</span>
+                              {poste.minRequired === 0 ? (
+                                <span className="block text-xs text-nuit-tres-doux">
+                                  facultatif
+                                </span>
+                              ) : (
+                                <span className="block text-xs text-nuit-tres-doux">
+                                  min {poste.minRequired}
+                                </span>
+                              )}
+                            </span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </fieldset>
+                ) : null}
 
                 {membres.length > 0 ? (
                   <fieldset>

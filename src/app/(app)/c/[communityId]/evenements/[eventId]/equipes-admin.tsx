@@ -45,6 +45,12 @@ interface MembreOption {
   name: string;
 }
 
+interface PosteOption {
+  id: string;
+  label: string;
+  minRequired: number;
+}
+
 export function EquipesAdmin({
   communityId,
   eventId,
@@ -52,6 +58,7 @@ export function EquipesAdmin({
   equipes,
   sousEvenements,
   membres,
+  postes,
 }: {
   communityId: string;
   eventId: string;
@@ -59,6 +66,7 @@ export function EquipesAdmin({
   equipes: TeamView[];
   sousEvenements: Occurrence[];
   membres: MembreOption[];
+  postes: PosteOption[];
 }) {
   const [ouvert, setOuvert] = useState(equipes.length === 0);
   const [etat, action] = useActionState(actionCreerEquipe, ETAT_INITIAL);
@@ -106,6 +114,41 @@ export function EquipesAdmin({
                   placeholder="Equipe 1, Groupe louange du soir, Pole technique..."
                 />
               </Champ>
+
+              {postes.length > 0 ? (
+                <fieldset>
+                  <legend className="text-sm font-medium">
+                    Postes dont cette equipe a besoin
+                  </legend>
+                  <p className="mt-1 text-xs text-nuit-doux">
+                    Cochez ce qui est attendu. Sans selection, tous les postes
+                    du modele sont repris.
+                  </p>
+                  <ul className="mt-2 grid gap-2 sm:grid-cols-3">
+                    {postes.map((poste) => (
+                      <li key={poste.id}>
+                        <label className="flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-ivoire-fonce/60 px-3 text-sm">
+                          <input
+                            type="checkbox"
+                            name="postes"
+                            value={poste.id}
+                            defaultChecked={poste.minRequired > 0}
+                            className="size-5"
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate">{poste.label}</span>
+                            <span className="block text-xs text-nuit-tres-doux">
+                              {poste.minRequired === 0
+                                ? "facultatif"
+                                : `min ${poste.minRequired}`}
+                            </span>
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </fieldset>
+              ) : null}
 
               <fieldset>
                 <legend className="text-sm font-medium">Effectif</legend>

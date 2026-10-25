@@ -533,6 +533,7 @@ export const NOTIFICATION_KINDS = [
   "evenement_annule",
   "rappel",
   "message_nouveau",
+  "positionnement",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

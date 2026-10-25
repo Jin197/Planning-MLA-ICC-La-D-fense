@@ -73,14 +73,22 @@ export default async function PageNouvelEvenement({
           sousTitre="Chaque date est explicite : une heure seule ne permet pas de planifier."
         />
         <CardBody>
-          <FormulaireEvenement communityId={communityId} membres={actifs} />
+          <FormulaireEvenement
+            communityId={communityId}
+            membres={actifs}
+            postes={postes.map((p) => ({
+              id: p.id,
+              label: p.label,
+              minRequired: p.minRequired,
+            }))}
+          />
         </CardBody>
       </Card>
 
       <Card>
         <CardHeader
-          titre={`Postes copies du modele (${postes.length})`}
-          sousTitre="Vous pourrez les renommer, les reordonner, regler leur effectif ou en desactiver pour cet evenement."
+          titre={`Postes du modele (${postes.length})`}
+          sousTitre="Chaque equipe recoit ceux que vous cochez ci-dessus. Vous pourrez ensuite les renommer, les reordonner, regler leur effectif ou en ajouter d'autres."
         />
         <CardBody>
           <ul className="flex flex-wrap gap-2">

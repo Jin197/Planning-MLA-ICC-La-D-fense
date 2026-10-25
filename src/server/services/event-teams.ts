@@ -57,16 +57,28 @@ async function bumpVersion(
   });
 }
 
+/**
+ * Cree le plan d'une equipe.
+ *
+ * Si l'equipe est deja rattachee ailleurs, la nouvelle feuille reprend la
+ * sienne — postes retenus, libelles et effectifs compris. Une equipe garde
+ * ainsi la meme composition de postes d'un sous-evenement a l'autre, y
+ * compris apres un reglage fait a la main.
+ */
 async function createPlan(
   tx: Tx,
-  input: { communityId: Id; eventId: Id; sessionId: Id | null; teamId: Id },
+  input: {
+    communityId: Id;
+    eventId: Id;
+    sessionId: Id | null;
+    teamId: Id;
+    /** Postes du modele retenus ; ignore si l'equipe a deja un plan. */
+    templateFieldIds?: readonly Id[];
+  },
 ): Promise<Id> {
   const template = await tx.selectOne("planning_templates", {
     where: { communityId: input.communityId },
   });
-  const fields = template
-    ? await tx.select("template_fields", { where: { templateId: template.id } })
-    : [];
   const planId = newId();
   await tx.insert("event_plans", {
     id: planId,
@@ -77,9 +89,31 @@ async function createPlan(
     templateVersion: template?.version ?? 1,
     createdAt: nowIso(),
   });
+
+  const existant = (
+    await tx.select("event_plans", { where: { teamId: input.teamId } })
+  ).find((p) => p.id !== planId);
+  if (existant) {
+    const modele = await tx.select("event_role_slots", {
+      where: { planId: existant.id },
+    });
+    await tx.insertMany(
+      "event_role_slots",
+      modele.map((slot) => ({ ...slot, id: newId(), planId })),
+    );
+    return planId;
+  }
+
+  const fields = template
+    ? await tx.select("template_fields", { where: { templateId: template.id } })
+    : [];
   await tx.insertMany(
     "event_role_slots",
-    copyTemplateIntoPlan(fields, { communityId: input.communityId, planId }),
+    copyTemplateIntoPlan(fields, {
+      communityId: input.communityId,
+      planId,
+      retenus: input.templateFieldIds,
+    }),
   );
   return planId;
 }
@@ -111,6 +145,8 @@ export interface AddTeamInput {
    * duree de l'evenement.
    */
   sessionIds?: Id[];
+  /** Postes du modele dont l'equipe a besoin. Vide = tout le modele. */
+  templateFieldIds?: Id[];
   expectedVersion: number;
 }
 
@@ -161,7 +197,13 @@ export async function addTeam(
           ? sessions.filter((s) => input.sessionIds!.includes(s.id)).map((s) => s.id)
           : [null];
       for (const sessionId of targets) {
-        await createPlan(tx, { communityId, eventId, sessionId, teamId });
+        await createPlan(tx, {
+          communityId,
+          eventId,
+          sessionId,
+          teamId,
+          templateFieldIds: input.templateFieldIds,
+        });
       }
 
       await writeAudit(tx, {

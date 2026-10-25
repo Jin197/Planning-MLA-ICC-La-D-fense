@@ -72,6 +72,43 @@ tout d'un coup.
 > **Verifie par un test** — enregistrement par creneau, mise a jour sans
 > doublon, selection multiple.
 
+## A1 bis. Je prends moi-meme un poste ouvert
+
+**Situation.** Elias s'est declare disponible. Plutot que d'attendre qu'un
+admin le place, il va sur un poste qui manque.
+
+**Compte.** `elias.marchand@exemple.test`
+
+1. Sur *le dimanche en collecte*, section **« Prendre un poste »**.
+2. Tant que la disponibilite n'est pas declaree, rien n'est propose : la
+   section le dit.
+3. Une fois disponible, les postes ou il manque quelqu'un apparaissent, avec
+   le nom de l'equipe et le nombre de personnes attendues.
+4. **« Je prends ce poste »**. Sur un poste qui attend une precision — le
+   pupitre double — un champ la demande.
+
+**A observer.** C'est la **disponibilite qui commande** : pas de reponse, pas
+de positionnement, et apres un changement d'horaire il faut d'abord
+reconfirmer.
+
+Pendant la collecte, la composition en preparation reste **reservee aux
+admins** : cette section dit **ce qui manque**, jamais **qui est deja place**.
+Elias ne decouvre donc pas le planning en cours d'ecriture.
+
+L'affectation est creee **confirmee** — on s'engage en se positionnant, il n'y
+a rien a reconfirmer — et les admins en sont informes. Elias peut encore
+signaler un empechement depuis **« Mes affectations »**.
+
+Trois refus, parce qu'aucun admin n'est la pour accepter une exception : un
+poste deja pourvu, un **chevauchement** avec un autre engagement, et une
+**combinaison d'instruments** difficilement tenable. Chacun renvoie vers un
+admin.
+
+> **Verifie par sept tests et un test de navigateur** — disponibilite exigee,
+> poste pourvu refuse, reconfirmation exigee, brouillon refuse, composition
+> non revelee, notification aux admins, et le parcours complet dans le
+> navigateur.
+
 ## A2. Je suis indisponible, et mon motif reste prive
 
 **Situation.** Maelys est disponible au culte 1 mais pas au culte 2, pour une
@@ -247,6 +284,12 @@ d'anniversaire, on saute l'etape 3 : l'evenement reste d'un seul bloc, son
 equipe couvre toute sa duree, et les membres repondent une seule fois — sur
 l'evenement. La demonstration contient un tel evenement,
 *Soiree speciale anniversaire*.
+
+**Les postes se choisissent equipe par equipe.** Le modele MLA en compte
+quinze ; une equipe de chant n'a pas besoin des postes techniques. Dans le
+bloc de chaque equipe, cochez ceux dont elle aura besoin — les postes attendus
+par le modele sont deja coches. Sans selection, tout le modele est repris. Un
+poste oublie s'ajoute ensuite depuis la feuille de l'equipe.
 
 **Les equipes appartiennent a l'evenement.** Leur nom et leur effectif sont
 saisis ici et disparaissent avec lui : « Equipe 1 » du 1er novembre et

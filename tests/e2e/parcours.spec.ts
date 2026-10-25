@@ -117,6 +117,34 @@ test.describe("parcours membre", () => {
     await expect(page.getByText("modifie").first()).toBeVisible();
   });
 
+  test("se declare disponible puis prend un poste ouvert", async ({ page }) => {
+    await connexion(page, "tobias.reverdy@exemple.test");
+    await page.goto(urlEvenement(evenementEnCollecte()));
+
+    // Tant que la disponibilite n'est pas declaree, aucun poste n'est propose.
+    await expect(page.getByRole("heading", { name: "Prendre un poste" })).toBeVisible();
+    await expect(
+      page.getByText(/Declarez-vous disponible ci-dessus/).first(),
+    ).toBeVisible();
+
+    await cliquerApresHydratation(
+      page.getByRole("button", { name: "Je suis disponible" }),
+      page.getByText(/Reponse enregistree \(\d+\)/),
+    );
+
+    // Les postes ou il manque quelqu'un apparaissent alors, sans aucun nom :
+    // la composition en preparation reste reservee aux admins.
+    const prendre = page.getByRole("button", { name: "Je prends ce poste" });
+    await expect(prendre.first()).toBeVisible();
+    await expect(page.getByText(/Plan non encore publie/)).toHaveCount(0);
+
+    await cliquerApresHydratation(
+      prendre.first(),
+      page.getByText(/Vous etes positionne sur ce poste/),
+    );
+    await expect(page.getByText("Vous tenez deja :").first()).toBeVisible();
+  });
+
   test("ne voit pas le plan d'un evenement en collecte", async ({ page }) => {
     await connexion(page, "elias.marchand@exemple.test");
     await page.goto(urlEvenement(evenementEnCollecte(), "equipes"));

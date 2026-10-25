@@ -6,7 +6,7 @@ import { getEventDetail } from "@/server/services/events";
 import { conflictCountForEvent } from "@/server/services/assignments";
 import { listSongs } from "@/server/services/songs";
 import { readThread } from "@/server/services/messages";
-import { listMembers } from "@/server/services/communities";
+import { getTemplate, listMembers } from "@/server/services/communities";
 import { getPreferences } from "@/server/services/notifications";
 import { EVENT_STATE_HELP } from "@/domain/events";
 import { formatDateLong } from "@/lib/time";
@@ -67,14 +67,18 @@ export default async function PageEvenement({
   }
 
   const vue = detail.value;
-  const [conflits, chants, fil, preferences, membres] = await Promise.all([
+  const [conflits, chants, fil, preferences, membres, modele] = await Promise.all([
     vue.isAdmin ? conflictCountForEvent(communityId, eventId) : Promise.resolve(0),
     listSongs(communityId),
     readThread(communityId, eventId),
     getPreferences(),
     // Les equipes se composent parmi les membres actifs de la communaute.
     vue.isAdmin ? listMembers(communityId) : Promise.resolve([]),
+    vue.isAdmin ? getTemplate(communityId) : Promise.resolve(null),
   ]);
+  const postes = (modele?.fields ?? [])
+    .filter((f) => f.assignable && f.archivedAt === null)
+    .map((f) => ({ id: f.id, label: f.label, minRequired: f.minRequired }));
   const membresActifs = membres
     .filter((m) => m.status === "active")
     .map((m) => ({
@@ -142,6 +146,7 @@ export default async function PageEvenement({
           communityId={communityId}
           vue={vue}
           membres={membresActifs}
+          postes={postes}
         />
       ) : null}
 

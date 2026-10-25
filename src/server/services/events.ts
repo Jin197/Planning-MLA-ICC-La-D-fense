@@ -64,6 +64,11 @@ export interface TeamDraft {
    * vide signifie que l'equipe couvre toute la duree de l'evenement.
    */
   sessionOrdinals: number[];
+  /**
+   * Postes du modele dont l'equipe a besoin. Une liste vide reprend tout le
+   * modele : une equipe de chant n'a pas de poste technique.
+   */
+  templateFieldIds: Id[];
 }
 
 export interface RehearsalDraft {
@@ -208,6 +213,8 @@ export async function createEvent(
             : sessions
                 .filter((s) => draft.sessionOrdinals.includes(s.ordinal))
                 .map((s) => s.id);
+        // Les postes retenus sont les memes sur chaque rattachement de
+        // l'equipe : c'est la meme equipe qui sert.
         for (const sessionId of targets) {
           const plan: EventPlan = {
             id: newId(),
@@ -221,7 +228,11 @@ export async function createEvent(
           await tx.insert("event_plans", plan);
           await tx.insertMany(
             "event_role_slots",
-            copyTemplateIntoPlan(fields, { communityId, planId: plan.id }),
+            copyTemplateIntoPlan(fields, {
+              communityId,
+              planId: plan.id,
+              retenus: draft.templateFieldIds,
+            }),
           );
         }
       }
@@ -261,7 +272,7 @@ export async function createEvent(
           recipientUserIds: members.map((m) => m.userId),
           communityId,
           eventId,
-          body: `Repondez a vos disponibilites pour « ${event.title} ».`,
+          body: `Repondez a vos disponibilites pour « ${event.title} », puis positionnez-vous sur les postes ouverts.`,
           href: `/c/${communityId}/evenements/${eventId}`,
           subjectId: eventId,
           revision: "collecte",
@@ -450,7 +461,26 @@ export interface OccurrenceView {
   myReason: string | null;
   /** Vue d'ensemble des reponses, reservee aux admins. */
   responseSummary: { disponible: number; indisponible: number; aRenseigner: number } | null;
+  /** Postes ou il manque quelqu'un, pour se positionner soi-meme. */
+  postesOuverts: PosteOuvertView[];
+  /** Postes que je tiens deja sur cette occurrence. */
+  mesPostes: { assignmentId: Id; label: string; teamName: string }[];
   setlist: SetlistItem[];
+}
+
+/**
+ * Poste encore ouvert, tel qu'un membre le voit pour s'y positionner.
+ *
+ * Pendant la collecte, la composition en preparation reste reservee aux
+ * admins : cette vue dit donc ce qui manque, jamais qui est deja place.
+ */
+export interface PosteOuvertView {
+  slotId: Id;
+  teamName: string;
+  label: string;
+  /** Personnes encore attendues ; 0 pour un poste facultatif libre. */
+  manquants: number;
+  allowsDetail: boolean;
 }
 
 export interface TeamView {
@@ -607,6 +637,73 @@ export async function getEventDetail(
           });
     };
 
+    /*
+     * Postes ouverts : calcules a part des plans, parce qu'ils sont visibles
+     * pendant la collecte alors que la composition ne l'est pas encore.
+     */
+    const ouvert = (slot: EventRoleSlot): number | null => {
+      if (!slot.enabled) return null;
+      const dessus = assignments.filter(
+        (a) => a.slotId === slot.id && a.state !== "retiree",
+      );
+      const comptes = dessus.filter((a) => a.state !== "a_remplacer");
+      const manquants = Math.max(0, slot.minRequired - comptes.length);
+      if (manquants > 0) return manquants;
+      // Un poste facultatif encore libre reste proposable.
+      return slot.minRequired === 0 && comptes.length === 0 ? 0 : null;
+    };
+
+    const postesOuvertsPour = (sessionId: Id | null): PosteOuvertView[] =>
+      plans
+        .filter((p) => p.sessionId === sessionId)
+        .flatMap((plan) =>
+          slots
+            .filter((s) => s.planId === plan.id)
+            .sort((a, b) => a.order - b.order)
+            .flatMap((slot) => {
+              const manquants = ouvert(slot);
+              if (manquants === null) return [];
+              if (
+                assignments.some(
+                  (a) =>
+                    a.slotId === slot.id &&
+                    a.state !== "retiree" &&
+                    a.membershipId === ctx.membership.membershipId,
+                )
+              ) {
+                return [];
+              }
+              return [
+                {
+                  slotId: slot.id,
+                  teamName:
+                    teams.find((t) => t.id === plan.teamId)?.name ?? "Equipe",
+                  label: slot.label,
+                  manquants,
+                  allowsDetail: slot.allowsDetail,
+                },
+              ];
+            }),
+        );
+
+    const mesPostesPour = (sessionId: Id | null) =>
+      plans
+        .filter((p) => p.sessionId === sessionId)
+        .flatMap((plan) =>
+          assignments
+            .filter(
+              (a) =>
+                a.membershipId === ctx.membership.membershipId &&
+                a.state !== "retiree" &&
+                slots.some((s) => s.id === a.slotId && s.planId === plan.id),
+            )
+            .map((a) => ({
+              assignmentId: a.id,
+              label: slots.find((s) => s.id === a.slotId)?.label ?? "Poste",
+              teamName: teams.find((t) => t.id === plan.teamId)?.name ?? "Equipe",
+            })),
+        );
+
     const occurrenceViews: OccurrenceView[] = occurrencesOf(event, sessions).map(
       (occurrence) => {
         const answers = availabilities.filter(
@@ -632,6 +729,8 @@ export async function getEventDetail(
                 aRenseigner: Math.max(0, activeMembers.length - answers.length),
               }
             : null,
+          postesOuverts: postesOuvertsPour(occurrence.sessionId),
+          mesPostes: mesPostesPour(occurrence.sessionId),
           setlist: setlist
             .filter((i) => i.sessionId === occurrence.sessionId)
             .sort((a, b) => a.order - b.order),
@@ -1284,7 +1383,7 @@ export async function changeEventState(
           recipientUserIds: members.map((m) => m.userId),
           communityId,
           eventId,
-          body: `Repondez a vos disponibilites pour « ${event.title} ».`,
+          body: `Repondez a vos disponibilites pour « ${event.title} », puis positionnez-vous sur les postes ouverts.`,
           href: `/c/${communityId}/evenements/${eventId}`,
           subjectId: eventId,
           revision: "collecte",

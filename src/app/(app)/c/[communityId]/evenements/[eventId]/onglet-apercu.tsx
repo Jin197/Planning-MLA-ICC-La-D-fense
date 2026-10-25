@@ -14,6 +14,7 @@ import { InformationsEvenement } from "./informations-evenement";
 import { PanneauPublication } from "./panneau-publication";
 import { BoutonSourdine } from "./bouton-sourdine";
 import { MesAffectations } from "./mes-affectations";
+import { SePositionner } from "./se-positionner";
 
 export function OngletApercu({
   communityId,
@@ -160,6 +161,30 @@ export function OngletApercu({
           Les reponses de disponibilite ne sont pas ouvertes dans cet etat.
         </Alerte>
       )}
+
+      {/*
+        * Se positionner soi-meme : reserve aux membres. Un admin dispose du
+        * selecteur complet dans l'onglet « Equipes et postes ».
+        */}
+      {ouvertAuxReponses && !vue.isAdmin ? (
+        <Card>
+          <CardHeader
+            titre="Prendre un poste"
+            sousTitre="Les postes ou il manque quelqu'un, sur les creneaux ou vous etes disponible."
+          />
+          <CardBody className="space-y-4">
+            {vue.occurrences.map((occurrence) => (
+              <SePositionner
+                key={occurrence.sessionId ?? "evenement"}
+                communityId={communityId}
+                eventId={vue.event.id}
+                occurrence={occurrence}
+                sansSousEvenement={vue.sessions.length === 0}
+              />
+            ))}
+          </CardBody>
+        </Card>
+      ) : null}
 
       <MesAffectations communityId={communityId} vue={vue} />
 

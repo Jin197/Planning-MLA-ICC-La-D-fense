@@ -12,6 +12,7 @@ import {
   createEvent,
   getEventDetail,
   publishEvent,
+  updateEvent,
 } from "@/server/services/events";
 import {
   addTeam,
@@ -21,7 +22,7 @@ import {
   setTeamMembers,
 } from "@/server/services/event-teams";
 import { answerAvailability } from "@/server/services/availability";
-import { assignMember } from "@/server/services/assignments";
+import { assignMember, selfAssign } from "@/server/services/assignments";
 import type { Id, Profile } from "@/domain/types";
 
 /**
@@ -74,6 +75,7 @@ describe("un evenement sans sous-evenement", () => {
           name: "Groupe louange du soir",
           membershipIds: [world.memberMembershipId],
           sessionOrdinals: [],
+          templateFieldIds: [],
         },
       ],
       rehearsals: [],
@@ -108,7 +110,7 @@ describe("un evenement sans sous-evenement", () => {
       locationName: "",
       locationAddress: "",
       sessions: [],
-      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [] }],
+      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [], templateFieldIds: [] }],
       rehearsals: [],
       openCollection: true,
     });
@@ -140,7 +142,7 @@ describe("un evenement sans sous-evenement", () => {
       locationName: "",
       locationAddress: "",
       sessions: [],
-      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [] }],
+      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [], templateFieldIds: [] }],
       rehearsals: [],
       openCollection: false,
     });
@@ -186,8 +188,8 @@ describe("equipes creees dans un evenement", () => {
         },
       ],
       teams: [
-        { name: "Equipe 1", membershipIds: [], sessionOrdinals: [1] },
-        { name: "Equipe 2", membershipIds: [], sessionOrdinals: [2] },
+        { name: "Equipe 1", membershipIds: [], sessionOrdinals: [1], templateFieldIds: [] },
+        { name: "Equipe 2", membershipIds: [], sessionOrdinals: [2], templateFieldIds: [] },
       ],
       rehearsals: [],
       openCollection: true,
@@ -258,7 +260,7 @@ describe("equipes creees dans un evenement", () => {
       locationName: "",
       locationAddress: "",
       sessions: [],
-      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [] }],
+      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [], templateFieldIds: [] }],
       rehearsals: [],
       openCollection: false,
     });
@@ -384,7 +386,7 @@ describe("ajout d'un premier sous-evenement", () => {
       locationName: "",
       locationAddress: "",
       sessions: [],
-      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [] }],
+      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [], templateFieldIds: [] }],
       rehearsals: [],
       openCollection: true,
     });
@@ -428,7 +430,7 @@ describe("ajout d'un premier sous-evenement", () => {
       locationName: "",
       locationAddress: "",
       sessions: [],
-      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [] }],
+      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [], templateFieldIds: [] }],
       rehearsals: [],
       openCollection: false,
     });
@@ -465,7 +467,7 @@ describe("notification a la creation", () => {
       locationName: "",
       locationAddress: "",
       sessions: [],
-      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [] }],
+      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [], templateFieldIds: [] }],
       rehearsals: [],
       openCollection: true,
     });
@@ -496,7 +498,7 @@ describe("notification a la creation", () => {
       locationName: "",
       locationAddress: "",
       sessions: [],
-      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [] }],
+      teams: [{ name: "Equipe 1", membershipIds: [], sessionOrdinals: [], templateFieldIds: [] }],
       rehearsals: [],
       openCollection: false,
     });
@@ -538,7 +540,7 @@ describe("indisponibilite partielle et equipe couvrant tout l'evenement", () => 
         },
       ],
       // L'equipe technique sert sur toute la duree.
-      teams: [{ name: "Technique", membershipIds: [], sessionOrdinals: [] }],
+      teams: [{ name: "Technique", membershipIds: [], sessionOrdinals: [], templateFieldIds: [] }],
       rehearsals: [],
       openCollection: true,
     });
@@ -580,5 +582,392 @@ describe("indisponibilite partielle et equipe couvrant tout l'evenement", () => 
       t.select("assignments", { where: { membershipId: world.memberMembershipId } }),
     );
     expect(affectations[0]!.state).toBe("a_remplacer");
+  });
+});
+
+describe("postes retenus par equipe", () => {
+  beforeEach(resetStore);
+
+  /** Identifiants des postes du modele, par libelle. */
+  async function postesDuModele(communityId: Id): Promise<Map<string, Id>> {
+    return tx(async (t) => {
+      const template = await t.selectOne("planning_templates", {
+        where: { communityId },
+      });
+      const fields = await t.select("template_fields", {
+        where: { templateId: template!.id },
+      });
+      return new Map(
+        fields.filter((f) => f.assignable).map((f) => [f.label, f.id]),
+      );
+    });
+  }
+
+  it("ne copie que les postes coches", async () => {
+    const world = await setup();
+    const postes = await postesDuModele(world.communityId);
+    const created = await createEvent(world.communityId, {
+      title: "Soiree anniversaire",
+      description: "",
+      ...HORAIRE,
+      locationName: "",
+      locationAddress: "",
+      sessions: [],
+      teams: [
+        {
+          name: "Groupe louange",
+          membershipIds: [],
+          sessionOrdinals: [],
+          templateFieldIds: [postes.get("LEAD")!, postes.get("Piano")!],
+        },
+      ],
+      rehearsals: [],
+      openCollection: false,
+    });
+    if (!created.ok) return;
+
+    const detail = await getEventDetail(world.communityId, created.value.eventId);
+    if (!detail.ok) return;
+    expect(detail.value.occurrences[0]!.plans[0]!.slots.map((s) => s.label)).toEqual([
+      "LEAD",
+      "Piano",
+    ]);
+  });
+
+  it("reprend tout le modele quand rien n'est coche", async () => {
+    const world = await setup();
+    const postes = await postesDuModele(world.communityId);
+    const created = await createEvent(world.communityId, {
+      title: "Soiree anniversaire",
+      description: "",
+      ...HORAIRE,
+      locationName: "",
+      locationAddress: "",
+      sessions: [],
+      teams: [
+        {
+          name: "Groupe louange",
+          membershipIds: [],
+          sessionOrdinals: [],
+          templateFieldIds: [],
+        },
+      ],
+      rehearsals: [],
+      openCollection: false,
+    });
+    if (!created.ok) return;
+
+    const detail = await getEventDetail(world.communityId, created.value.eventId);
+    if (!detail.ok) return;
+    expect(detail.value.occurrences[0]!.plans[0]!.slots).toHaveLength(postes.size);
+  });
+
+  it("donne la meme feuille a chaque rattachement de l'equipe", async () => {
+    const world = await setup();
+    const postes = await postesDuModele(world.communityId);
+    const created = await createEvent(world.communityId, {
+      title: "Cultes du dimanche",
+      description: "",
+      start: { date: "2026-10-18", time: "09:00" },
+      end: { date: "2026-10-18", time: "12:45" },
+      locationName: "",
+      locationAddress: "",
+      sessions: [
+        {
+          label: "Culte 1",
+          start: { date: "2026-10-18", time: "09:00" },
+          end: { date: "2026-10-18", time: "10:45" },
+          locationName: "",
+          locationAddress: "",
+        },
+        {
+          label: "Culte 2",
+          start: { date: "2026-10-18", time: "11:00" },
+          end: { date: "2026-10-18", time: "12:45" },
+          locationName: "",
+          locationAddress: "",
+        },
+      ],
+      teams: [
+        {
+          name: "Equipe 1",
+          membershipIds: [],
+          sessionOrdinals: [1, 2],
+          templateFieldIds: [postes.get("LEAD")!, postes.get("Batterie")!],
+        },
+      ],
+      rehearsals: [],
+      openCollection: false,
+    });
+    if (!created.ok) return;
+
+    const detail = await getEventDetail(world.communityId, created.value.eventId);
+    if (!detail.ok) return;
+    for (const occurrence of detail.value.occurrences) {
+      expect(occurrence.plans[0]!.slots.map((s) => s.label)).toEqual([
+        "LEAD",
+        "Batterie",
+      ]);
+    }
+  });
+
+  it("reprend la feuille de l'equipe sur un rattachement ajoute apres coup", async () => {
+    const world = await setup();
+    const postes = await postesDuModele(world.communityId);
+    const created = await createEvent(world.communityId, {
+      title: "Cultes du dimanche",
+      description: "",
+      start: { date: "2026-10-18", time: "09:00" },
+      end: { date: "2026-10-18", time: "12:45" },
+      locationName: "",
+      locationAddress: "",
+      sessions: [
+        {
+          label: "Culte 1",
+          start: { date: "2026-10-18", time: "09:00" },
+          end: { date: "2026-10-18", time: "10:45" },
+          locationName: "",
+          locationAddress: "",
+        },
+        {
+          label: "Culte 2",
+          start: { date: "2026-10-18", time: "11:00" },
+          end: { date: "2026-10-18", time: "12:45" },
+          locationName: "",
+          locationAddress: "",
+        },
+      ],
+      teams: [
+        {
+          name: "Equipe 1",
+          membershipIds: [],
+          sessionOrdinals: [1],
+          templateFieldIds: [postes.get("LEAD")!],
+        },
+      ],
+      rehearsals: [],
+      openCollection: false,
+    });
+    if (!created.ok) return;
+    const eventId = created.value.eventId;
+
+    const detail = await getEventDetail(world.communityId, eventId);
+    if (!detail.ok) return;
+    const equipe = detail.value.teams[0]!;
+    await attachTeam(world.communityId, equipe.id, {
+      sessionId: detail.value.sessions[1]!.id,
+      expectedVersion: detail.value.event.version,
+    });
+
+    const apres = await getEventDetail(world.communityId, eventId);
+    if (!apres.ok) return;
+    // Le second rattachement ne repart pas de tout le modele.
+    expect(apres.value.occurrences[1]!.plans[0]!.slots.map((s) => s.label)).toEqual([
+      "LEAD",
+    ]);
+  });
+});
+
+describe("un membre se positionne lui-meme", () => {
+  beforeEach(resetStore);
+
+  async function evenementOuvert(world: World) {
+    const created = await createEvent(world.communityId, {
+      title: "Cultes du dimanche",
+      description: "",
+      ...HORAIRE,
+      locationName: "",
+      locationAddress: "",
+      sessions: [],
+      teams: [
+        {
+          name: "Equipe 1",
+          membershipIds: [],
+          sessionOrdinals: [],
+          templateFieldIds: [],
+        },
+      ],
+      rehearsals: [],
+      openCollection: true,
+    });
+    if (!created.ok) throw new Error(created.message);
+    return created.value.eventId;
+  }
+
+  async function posteOuvert(world: World, eventId: Id, label: string): Promise<Id> {
+    const detail = await getEventDetail(world.communityId, eventId);
+    if (!detail.ok) throw new Error(detail.message);
+    const poste = detail.value.occurrences[0]!.postesOuverts.find(
+      (p) => p.label === label,
+    );
+    if (!poste) throw new Error(`Poste « ${label} » non ouvert.`);
+    return poste.slotId;
+  }
+
+  it("refuse tant que la disponibilite n'est pas declaree", async () => {
+    const world = await setup();
+    const eventId = await evenementOuvert(world);
+    const slotId = await posteOuvert(world, eventId, "LEAD");
+
+    await signIn(world.member.id);
+    const essai = await selfAssign(world.communityId, { slotId });
+    expect(essai.ok).toBe(false);
+    if (!essai.ok) expect(essai.code).toBe("disponibilite_requise");
+  });
+
+  it("accepte un membre disponible, et previent les admins", async () => {
+    const world = await setup();
+    const eventId = await evenementOuvert(world);
+    const slotId = await posteOuvert(world, eventId, "LEAD");
+
+    await signIn(world.member.id);
+    await answerAvailability(world.communityId, {
+      eventId,
+      sessionIds: [],
+      answer: "disponible",
+    });
+    const pris = await selfAssign(world.communityId, { slotId });
+    expect(pris.ok).toBe(true);
+
+    const affectations = await tx((t) =>
+      t.select("assignments", { where: { membershipId: world.memberMembershipId } }),
+    );
+    expect(affectations).toHaveLength(1);
+    // La personne s'engage en se positionnant : rien a reconfirmer.
+    expect(affectations[0]!.state).toBe("confirmee");
+
+    const notifications = await tx((t) =>
+      t.select("notifications", { where: { eventId, kind: "positionnement" } }),
+    );
+    expect(notifications).toHaveLength(1);
+  });
+
+  it("refuse un poste deja pourvu", async () => {
+    const world = await setup();
+    const eventId = await evenementOuvert(world);
+    const slotId = await posteOuvert(world, eventId, "LEAD");
+
+    await signIn(world.member.id);
+    await answerAvailability(world.communityId, {
+      eventId,
+      sessionIds: [],
+      answer: "disponible",
+    });
+    await selfAssign(world.communityId, { slotId });
+
+    // L'admin est disponible aussi, mais ce poste n'attend qu'une personne.
+    await signIn(world.admin.id);
+    await answerAvailability(world.communityId, {
+      eventId,
+      sessionIds: [],
+      answer: "disponible",
+    });
+    const second = await selfAssign(world.communityId, { slotId });
+    expect(second.ok).toBe(false);
+    if (!second.ok) expect(second.code).toBe("poste_pourvu");
+  });
+
+  it("ne propose plus un poste pourvu, ni celui que je tiens", async () => {
+    const world = await setup();
+    const eventId = await evenementOuvert(world);
+    const slotId = await posteOuvert(world, eventId, "LEAD");
+
+    await signIn(world.member.id);
+    await answerAvailability(world.communityId, {
+      eventId,
+      sessionIds: [],
+      answer: "disponible",
+    });
+    await selfAssign(world.communityId, { slotId });
+
+    const detail = await getEventDetail(world.communityId, eventId);
+    if (!detail.ok) return;
+    const occurrence = detail.value.occurrences[0]!;
+    expect(occurrence.postesOuverts.map((p) => p.label)).not.toContain("LEAD");
+    expect(occurrence.mesPostes.map((p) => p.label)).toEqual(["LEAD"]);
+  });
+
+  it("montre les postes ouverts sans reveler qui est deja place", async () => {
+    const world = await setup();
+    const eventId = await evenementOuvert(world);
+    const slotId = await posteOuvert(world, eventId, "LEAD");
+
+    // L'admin place quelqu'un pendant la collecte.
+    await assignMember(world.communityId, {
+      slotId,
+      membershipId: world.adminMembershipId,
+      acceptExceptions: true,
+      exceptionReason: "Test",
+    });
+
+    await signIn(world.member.id);
+    const detail = await getEventDetail(world.communityId, eventId);
+    if (!detail.ok) return;
+    // La composition reste reservee aux admins...
+    expect(detail.value.canSeePlan).toBe(false);
+    expect(detail.value.occurrences[0]!.plans).toEqual([]);
+    // ... mais ce qui manque se voit, sans aucun nom.
+    const ouverts = detail.value.occurrences[0]!.postesOuverts;
+    expect(ouverts.length).toBeGreaterThan(0);
+    expect(ouverts.map((p) => p.label)).not.toContain("LEAD");
+    expect(JSON.stringify(ouverts)).not.toContain("Nadia");
+  });
+
+  it("refuse apres un changement d'horaire non reconfirme", async () => {
+    const world = await setup();
+    const eventId = await evenementOuvert(world);
+    const slotId = await posteOuvert(world, eventId, "LEAD");
+
+    await signIn(world.member.id);
+    await answerAvailability(world.communityId, {
+      eventId,
+      sessionIds: [],
+      answer: "disponible",
+    });
+
+    await signIn(world.admin.id);
+    const detail = await getEventDetail(world.communityId, eventId);
+    if (!detail.ok) return;
+    await updateEvent(world.communityId, eventId, {
+      expectedVersion: detail.value.event.version,
+      start: { date: "2026-11-21", time: "20:00" },
+      end: { date: "2026-11-21", time: "23:00" },
+    });
+
+    await signIn(world.member.id);
+    const essai = await selfAssign(world.communityId, { slotId });
+    expect(essai.ok).toBe(false);
+    if (!essai.ok) expect(essai.code).toBe("reconfirmation_requise");
+  });
+
+  it("refuse sur un evenement en brouillon", async () => {
+    const world = await setup();
+    const created = await createEvent(world.communityId, {
+      title: "En preparation",
+      description: "",
+      ...HORAIRE,
+      locationName: "",
+      locationAddress: "",
+      sessions: [],
+      teams: [
+        {
+          name: "Equipe 1",
+          membershipIds: [],
+          sessionOrdinals: [],
+          templateFieldIds: [],
+        },
+      ],
+      rehearsals: [],
+      openCollection: false,
+    });
+    if (!created.ok) return;
+
+    const detail = await getEventDetail(world.communityId, created.value.eventId);
+    if (!detail.ok) return;
+    const slotId = detail.value.occurrences[0]!.plans[0]!.slots[0]!.id;
+
+    await signIn(world.member.id);
+    const essai = await selfAssign(world.communityId, { slotId });
+    expect(essai.ok).toBe(false);
   });
 });

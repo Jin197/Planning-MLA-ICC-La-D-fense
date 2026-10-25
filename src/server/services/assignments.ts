@@ -579,3 +579,205 @@ export async function conflictCountForEvent(
     return count;
   });
 }
+
+/* -------------------------------------------------------------------------- */
+/* Positionnement par le membre                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Un membre se place lui-meme sur un poste ouvert.
+ *
+ * C'est l'autre sens de l'affectation : l'admin compose, mais un membre
+ * disponible peut aussi prendre un poste qui manque. Trois garde-fous, parce
+ * qu'il n'y a ici aucun admin pour accepter une exception :
+ *
+ *  - il faut s'etre declare disponible sur cette occurrence ;
+ *  - le poste doit etre encore ouvert ;
+ *  - un chevauchement ou une incompatibilite refuse le positionnement au
+ *    lieu de l'enregistrer avec une alerte.
+ *
+ * L'affectation est creee « confirmee » : la personne s'engage en se
+ * positionnant, elle n'a rien a reconfirmer. Les admins en sont informes et
+ * peuvent la retirer.
+ */
+export async function selfAssign(
+  communityId: Id,
+  input: { slotId: Id; detail?: string | null },
+): Promise<Result<{ assignmentId: Id }>> {
+  const ctx = await requireActiveMembership(communityId);
+  const adapter = getDataAdapter();
+
+  try {
+    return await adapter.transaction(async (tx) => {
+      const slot = await tx.selectOne("event_role_slots", {
+        where: { id: input.slotId, communityId },
+      });
+      if (!slot) return err("poste_inconnu", "Poste introuvable.");
+      if (!slot.enabled) {
+        return err("poste_desactive", "Ce poste n'est pas utilise sur cet evenement.");
+      }
+
+      const plan = await tx.selectOne("event_plans", { where: { id: slot.planId } });
+      if (!plan) return err("plan_inconnu", "Plan introuvable.");
+      const event = await tx.selectOne("events", { where: { id: plan.eventId } });
+      if (!event) return err("evenement_inconnu", "Evenement introuvable.");
+      if (event.state !== "collecte" && event.state !== "publie") {
+        return err(
+          "evenement_ferme",
+          "Les postes ne sont pas ouverts au positionnement sur cet evenement.",
+        );
+      }
+
+      const session =
+        plan.sessionId === null
+          ? null
+          : await tx.selectOne("event_sessions", { where: { id: plan.sessionId } });
+      if (plan.sessionId !== null && !session) {
+        return err("sous_evenement_inconnu", "Sous-evenement introuvable.");
+      }
+
+      // 1. La disponibilite declaree commande : pas de positionnement sans
+      //    reponse, ni apres un changement d'horaire non reconfirme.
+      const availability = (
+        await tx.select("availabilities", {
+          where: { eventId: event.id, membershipId: ctx.membership.membershipId },
+        })
+      ).find((a) => a.sessionId === plan.sessionId);
+      if (!availability || availability.answer !== "disponible") {
+        return err(
+          "disponibilite_requise",
+          "Declarez-vous d'abord disponible sur ce creneau pour vous y positionner.",
+        );
+      }
+      if (availability.needsReconfirmation) {
+        return err(
+          "reconfirmation_requise",
+          "Les horaires ont change : reconfirmez votre disponibilite avant de vous positionner.",
+        );
+      }
+
+      // 2. Le poste doit etre encore ouvert.
+      const surCePoste = (
+        await tx.select("assignments", { where: { slotId: slot.id } })
+      ).filter((a) => a.state !== "retiree");
+      if (
+        isExactDuplicate(surCePoste, {
+          slotId: slot.id,
+          membershipId: ctx.membership.membershipId,
+        })
+      ) {
+        return err("deja_positionne", "Vous tenez deja ce poste.");
+      }
+      const comptes = surCePoste.filter((a) => a.state !== "a_remplacer");
+      const manquants = Math.max(0, slot.minRequired - comptes.length);
+      const ouvert =
+        manquants > 0 || (slot.minRequired === 0 && comptes.length === 0);
+      if (!ouvert) {
+        return err(
+          "poste_pourvu",
+          "Ce poste est deja pourvu. Demandez a un admin si vous souhaitez tout de meme y figurer.",
+        );
+      }
+
+      // 3. Chevauchement et incompatibilites : refus, pas d'alerte.
+      const commitments = await commitmentsForUser(tx, ctx.viewer.userId);
+      const conflits = detectConflicts(
+        {
+          refId: session?.id ?? event.id,
+          startsAt: session?.startsAt ?? event.startsAt,
+          endsAt: session?.endsAt ?? event.endsAt,
+        },
+        commitments,
+        communityId,
+      );
+      if (conflits.hasConflict) {
+        // Un conflit hors de cette communaute reste masque : on signale le
+        // chevauchement sans nommer l'autre ministere.
+        const details = conflits.conflicts
+          .map((c) =>
+            c.visibility === "detaille"
+              ? `${c.label} (${c.eventTitle})`
+              : "un engagement dans un autre ministere",
+          )
+          .join(", ");
+        return err(
+          "chevauchement",
+          `Vous etes deja engage sur un horaire qui chevauche celui-ci : ${details}. Demandez a un admin.`,
+        );
+      }
+
+      const planFrere = (
+        await tx.select("event_plans", { where: { eventId: event.id } })
+      ).filter((p) => p.sessionId === plan.sessionId);
+      const slotsFreres = await tx.select("event_role_slots", {
+        whereIn: { planId: planFrere.map((p) => p.id) },
+      });
+      const mesAutresPostes = (
+        await tx.select("assignments", {
+          where: { membershipId: ctx.membership.membershipId },
+        })
+      )
+        .filter((a) => a.state !== "retiree")
+        .map((a) => slotsFreres.find((s) => s.id === a.slotId)?.label)
+        .filter((label): label is string => label !== undefined);
+      const incompatibles = findIncompatibleRoles([...mesAutresPostes, slot.label]);
+      if (incompatibles.length > 0) {
+        return err(
+          "postes_incompatibles",
+          `Vous tenez deja un poste difficilement compatible avec « ${slot.label} » : ${incompatibles
+            .map((paire) => paire.join(" et "))
+            .join(", ")}. Demandez a un admin.`,
+        );
+      }
+
+      const at = nowIso();
+      const assignmentId = newId();
+      await tx.insert("assignments", {
+        id: assignmentId,
+        communityId,
+        planId: plan.id,
+        slotId: slot.id,
+        membershipId: ctx.membership.membershipId,
+        // La personne s'engage en se positionnant : rien a reconfirmer.
+        state: "confirmee",
+        detail: input.detail?.trim() || null,
+        exceptions: [],
+        memberNote: null,
+        createdBy: ctx.viewer.userId,
+        createdAt: at,
+        updatedAt: at,
+      });
+
+      const equipe = await tx.selectOne("event_teams", { where: { id: plan.teamId } });
+      const profile = await tx.selectOne("profiles", {
+        where: { id: ctx.viewer.userId },
+      });
+      const admins = await tx.select("community_memberships", {
+        where: { communityId, status: "active", role: "admin" },
+      });
+      await enqueueNotifications(tx, {
+        kind: "positionnement",
+        recipientUserIds: admins.map((a) => a.userId),
+        communityId,
+        eventId: event.id,
+        body: `${profile ? `${profile.firstName} ${profile.lastName}` : "Un membre"} s'est positionne sur « ${slot.label} » (${equipe?.name ?? "equipe"}${session ? `, ${session.label}` : ""}) pour « ${event.title} ».`,
+        href: `/c/${communityId}/evenements/${event.id}`,
+        subjectId: assignmentId,
+      });
+
+      await writeAudit(tx, {
+        communityId,
+        actorUserId: ctx.viewer.userId,
+        action: "affectation.positionnement",
+        targetType: "assignment",
+        targetId: assignmentId,
+        metadata: { poste: slot.label, equipe: equipe?.name ?? null },
+      });
+
+      return ok({ assignmentId });
+    });
+  } catch (error) {
+    if (error instanceof ConstraintError) return err(error.code, error.message);
+    throw error;
+  }
+}
