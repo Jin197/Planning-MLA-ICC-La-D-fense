@@ -564,8 +564,11 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
     publie: jourDecale(ancre, -7),
     /** Dimanche en collecte : les reponses sont ouvertes. */
     collecte: jourDecale(ancre, 0),
-    /** Dimanche archive : historique en lecture seule. */
-    archive: jourDecale(ancre, -21),
+    /**
+     * Dimanche archive : un historique se lit au passe. 54 semaines avant
+     * l'ancre, donc un dimanche deja ecoule.
+     */
+    archive: jourDecale(ancre, -7 * 54),
     anniversaire: jourDecale(ancre, 27),
     repetitionGenerale: jourDecale(ancre, -9),
     repetitionNuit: jourDecale(ancre, -2),

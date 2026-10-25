@@ -213,6 +213,9 @@ export async function loadTableauDeBord(): Promise<TableauDeBord> {
 
     /* Prochain evenement, toutes communautes. */
     const prochaine = visibleEvents
+      // Un evenement annule ou archive n'est pas « a venir », meme si sa
+      // date l'est : il ne sert plus a rien de l'annoncer.
+      .filter((e) => e.state !== "annule" && e.state !== "archive")
       .flatMap((event) =>
         occurrencesOf(
           event,
