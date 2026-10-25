@@ -19,36 +19,37 @@ import type { OccurrenceView } from "@/server/services/events";
 export function SePositionner({
   communityId,
   eventId,
-  occurrence,
-  sansSousEvenement,
+  titre,
+  postesOuverts,
+  mesPostes,
+  disponible,
+  raisonIndisponible,
 }: {
   communityId: string;
   eventId: string;
-  occurrence: OccurrenceView;
-  sansSousEvenement: boolean;
+  titre: string;
+  postesOuverts: OccurrenceView["postesOuverts"];
+  mesPostes: OccurrenceView["mesPostes"];
+  /** La disponibilite declaree permet-elle de se positionner ici ? */
+  disponible: boolean;
+  raisonIndisponible: string;
 }) {
   const [etat, action] = useActionState(actionSePositionner, ETAT_INITIAL);
-
-  const disponible =
-    occurrence.myAvailability?.answer === "disponible" &&
-    !occurrence.myAvailability.needsReconfirmation;
+  const cle = titre.replace(/\W+/g, "-").toLowerCase();
 
   return (
     <section
-      aria-labelledby={`postes-${occurrence.sessionId ?? "evenement"}`}
+      aria-labelledby={`postes-${cle}`}
       className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
     >
-      <h3
-        id={`postes-${occurrence.sessionId ?? "evenement"}`}
-        className="text-sm font-semibold"
-      >
-        {sansSousEvenement ? "Postes ouverts" : `Postes ouverts - ${occurrence.label}`}
+      <h3 id={`postes-${cle}`} className="text-sm font-semibold">
+        {titre}
       </h3>
 
-      {occurrence.mesPostes.length > 0 ? (
+      {mesPostes.length > 0 ? (
         <p className="mt-2 text-sm text-nuit-doux">
           Vous tenez deja :{" "}
-          {occurrence.mesPostes.map((poste) => (
+          {mesPostes.map((poste) => (
             <Badge key={poste.assignmentId} ton="indigo" className="mr-1">
               {poste.label} - {poste.teamName}
             </Badge>
@@ -66,19 +67,15 @@ export function SePositionner({
       ) : null}
 
       {!disponible ? (
-        <p className="mt-2 text-sm text-nuit-doux">
-          {occurrence.myAvailability?.needsReconfirmation
-            ? "Les horaires ont change : reconfirmez votre disponibilite pour pouvoir vous positionner."
-            : "Declarez-vous disponible ci-dessus pour pouvoir prendre un poste."}
-        </p>
-      ) : occurrence.postesOuverts.length === 0 ? (
+        <p className="mt-2 text-sm text-nuit-doux">{raisonIndisponible}</p>
+      ) : postesOuverts.length === 0 ? (
         <EtatVide
           titre="Aucun poste ouvert ici"
           description="Tous les postes attendus sont pourvus. Un admin peut vous y ajouter malgre tout."
         />
       ) : (
         <ul className="mt-3 space-y-2">
-          {occurrence.postesOuverts.map((poste) => (
+          {postesOuverts.map((poste) => (
             <li key={poste.slotId}>
               <form
                 action={action}

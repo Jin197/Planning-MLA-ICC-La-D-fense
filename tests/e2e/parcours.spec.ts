@@ -117,6 +117,38 @@ test.describe("parcours membre", () => {
     await expect(page.getByText("modifie").first()).toBeVisible();
   });
 
+  test("lit ses disponibilites par equipe", async ({ page }) => {
+    // Tobias sert en Equipe 1, le matin.
+    await connexion(page, "tobias.reverdy@exemple.test");
+    await page.goto(urlEvenement(evenementEnCollecte()));
+
+    // « Culte 1 » apparait aussi dans la carte des sous-evenements : on se
+    // place dans le formulaire de reponse.
+    const choix = page.getByRole("group", { name: "Sous-evenements concernes" });
+    const culte1 = choix.getByRole("listitem").filter({ hasText: "Culte 1" });
+    const culte3 = choix.getByRole("listitem").filter({ hasText: "Culte 3" });
+
+    // Chaque sous-evenement annonce les equipes qui y servent, et celles du
+    // lecteur sont signalees.
+    await expect(culte1.getByText("Equipe 1 - vous")).toBeVisible();
+    await expect(culte3.getByText("Equipe 2")).toBeVisible();
+    await expect(culte3.getByText("- vous")).toHaveCount(0);
+
+    // Les moments de son equipe sont preselectionnes, les autres non.
+    await expect(culte1.getByRole("checkbox")).toBeChecked();
+    await expect(culte3.getByRole("checkbox")).not.toBeChecked();
+
+    // Le raccourci par equipe reselectionne les siens d'un coup.
+    await cliquerApresHydratation(
+      page.getByRole("button", { name: "Tout selectionner" }),
+      culte3.getByRole("checkbox"),
+    );
+    await expect(culte3.getByRole("checkbox")).toBeChecked();
+    await page.getByRole("button", { name: "Les moments de Equipe 1" }).click();
+    await expect(culte3.getByRole("checkbox")).not.toBeChecked();
+    await expect(culte1.getByRole("checkbox")).toBeChecked();
+  });
+
   test("se declare disponible puis prend un poste ouvert", async ({ page }) => {
     await connexion(page, "tobias.reverdy@exemple.test");
     await page.goto(urlEvenement(evenementEnCollecte()));

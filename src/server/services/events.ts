@@ -461,6 +461,8 @@ export interface OccurrenceView {
   myReason: string | null;
   /** Vue d'ensemble des reponses, reservee aux admins. */
   responseSummary: { disponible: number; indisponible: number; aRenseigner: number } | null;
+  /** Equipes qui servent sur cette occurrence. */
+  equipes: EquipePresenteView[];
   /** Postes ou il manque quelqu'un, pour se positionner soi-meme. */
   postesOuverts: PosteOuvertView[];
   /** Postes que je tiens deja sur cette occurrence. */
@@ -474,6 +476,22 @@ export interface OccurrenceView {
  * Pendant la collecte, la composition en preparation reste reservee aux
  * admins : cette vue dit donc ce qui manque, jamais qui est deja place.
  */
+/**
+ * Equipe qui sert sur une occurrence, telle qu'un membre la voit.
+ *
+ * Le fait qu'une equipe serve a tel moment n'est pas la composition du
+ * planning : c'est la structure de l'evenement, et elle se lit des la
+ * collecte. L'effectif, lui, n'est pas repris ici.
+ */
+export interface EquipePresenteView {
+  teamId: Id;
+  name: string;
+  /** Couvre toute la duree de l'evenement plutot que ce seul moment. */
+  surToutLEvenement: boolean;
+  /** Je fais partie de son effectif. */
+  jEnFaisPartie: boolean;
+}
+
 export interface PosteOuvertView {
   slotId: Id;
   teamName: string;
@@ -502,6 +520,13 @@ export interface EventDetail {
    * pas de sous-evenement : l'occurrence unique les porte alors elle-meme.
    */
   eventWidePlans: PlanView[];
+  /**
+   * Postes ouverts de ces memes equipes, pour s'y positionner. Les prendre
+   * engage sur toute la duree : il faut donc etre disponible partout.
+   */
+  postesOuvertsEvenement: PosteOuvertView[];
+  /** Postes que je tiens sur toute la duree de l'evenement. */
+  mesPostesEvenement: { assignmentId: Id; label: string; teamName: string }[];
   teams: TeamView[];
   rehearsals: (Rehearsal & {
     teamIds: Id[];
@@ -653,6 +678,35 @@ export async function getEventDetail(
       return slot.minRequired === 0 && comptes.length === 0 ? 0 : null;
     };
 
+    /**
+     * Plans qui servent sur une occurrence : ceux qui la visent, et ceux qui
+     * couvrent toute la duree de l'evenement.
+     */
+    const plansPour = (sessionId: Id | null) =>
+      plans.filter(
+        (p) =>
+          p.sessionId === sessionId ||
+          (sessionId !== null && p.sessionId === null),
+      );
+
+    const equipesPour = (sessionId: Id | null): EquipePresenteView[] =>
+      plansPour(sessionId).flatMap((plan) => {
+        const equipe = teams.find((t) => t.id === plan.teamId);
+        if (!equipe) return [];
+        return [
+          {
+            teamId: equipe.id,
+            name: equipe.name,
+            surToutLEvenement: plan.sessionId === null,
+            jEnFaisPartie: teamMembers.some(
+              (m) =>
+                m.teamId === equipe.id &&
+                m.membershipId === ctx.membership.membershipId,
+            ),
+          },
+        ];
+      });
+
     const postesOuvertsPour = (sessionId: Id | null): PosteOuvertView[] =>
       plans
         .filter((p) => p.sessionId === sessionId)
@@ -729,6 +783,7 @@ export async function getEventDetail(
                 aRenseigner: Math.max(0, activeMembers.length - answers.length),
               }
             : null,
+          equipes: equipesPour(occurrence.sessionId),
           postesOuverts: postesOuvertsPour(occurrence.sessionId),
           mesPostes: mesPostesPour(occurrence.sessionId),
           setlist: setlist
@@ -790,6 +845,9 @@ export async function getEventDetail(
       // Quand l'evenement a des sous-evenements, les equipes couvrant toute
       // sa duree ne se rangent sous aucun d'eux : elles sont a part.
       eventWidePlans: sessions.length === 0 ? [] : planViewsFor(null),
+      postesOuvertsEvenement:
+        sessions.length === 0 ? [] : postesOuvertsPour(null),
+      mesPostesEvenement: sessions.length === 0 ? [] : mesPostesPour(null),
       teams: teamViews,
       rehearsals: rehearsals.map((r) => {
         const mine = rehearsalAvailabilities.find((a) => a.rehearsalId === r.id);

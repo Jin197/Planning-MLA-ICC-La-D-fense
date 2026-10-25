@@ -971,3 +971,160 @@ describe("un membre se positionne lui-meme", () => {
     expect(essai.ok).toBe(false);
   });
 });
+
+describe("les equipes eclairent la disponibilite", () => {
+  beforeEach(resetStore);
+
+  async function dimancheAvecDeuxEquipes(world: World) {
+    const created = await createEvent(world.communityId, {
+      title: "Cultes du dimanche",
+      description: "",
+      start: { date: "2026-10-18", time: "09:00" },
+      end: { date: "2026-10-18", time: "16:45" },
+      locationName: "",
+      locationAddress: "",
+      sessions: [
+        {
+          label: "Culte 1",
+          start: { date: "2026-10-18", time: "09:00" },
+          end: { date: "2026-10-18", time: "10:45" },
+          locationName: "",
+          locationAddress: "",
+        },
+        {
+          label: "Culte 2",
+          start: { date: "2026-10-18", time: "11:00" },
+          end: { date: "2026-10-18", time: "12:45" },
+          locationName: "",
+          locationAddress: "",
+        },
+        {
+          label: "Culte 3",
+          start: { date: "2026-10-18", time: "15:00" },
+          end: { date: "2026-10-18", time: "16:45" },
+          locationName: "",
+          locationAddress: "",
+        },
+      ],
+      teams: [
+        {
+          name: "Equipe 1",
+          membershipIds: [world.memberMembershipId],
+          sessionOrdinals: [1, 2],
+          templateFieldIds: [],
+        },
+        {
+          name: "Equipe 2",
+          membershipIds: [],
+          sessionOrdinals: [3],
+          templateFieldIds: [],
+        },
+        {
+          name: "Technique",
+          membershipIds: [],
+          sessionOrdinals: [],
+          templateFieldIds: [],
+        },
+      ],
+      rehearsals: [],
+      openCollection: true,
+    });
+    if (!created.ok) throw new Error(created.message);
+    return created.value.eventId;
+  }
+
+  it("annonce sur chaque sous-evenement les equipes qui y servent", async () => {
+    const world = await setup();
+    const eventId = await dimancheAvecDeuxEquipes(world);
+
+    await signIn(world.member.id);
+    const detail = await getEventDetail(world.communityId, eventId);
+    if (!detail.ok) return;
+
+    const [c1, c2, c3] = detail.value.occurrences;
+    // L'equipe « Technique » couvre toute la duree : elle sert partout.
+    expect(c1!.equipes.map((e) => e.name).sort()).toEqual(["Equipe 1", "Technique"]);
+    expect(c2!.equipes.map((e) => e.name).sort()).toEqual(["Equipe 1", "Technique"]);
+    expect(c3!.equipes.map((e) => e.name).sort()).toEqual(["Equipe 2", "Technique"]);
+  });
+
+  it("marque les equipes dont le lecteur fait partie", async () => {
+    const world = await setup();
+    const eventId = await dimancheAvecDeuxEquipes(world);
+
+    await signIn(world.member.id);
+    const detail = await getEventDetail(world.communityId, eventId);
+    if (!detail.ok) return;
+
+    const miennes = detail.value.occurrences[0]!.equipes.filter(
+      (e) => e.jEnFaisPartie,
+    );
+    expect(miennes.map((e) => e.name)).toEqual(["Equipe 1"]);
+    // Le culte de l'apres-midi ne le concerne pas.
+    expect(
+      detail.value.occurrences[2]!.equipes.some((e) => e.jEnFaisPartie),
+    ).toBe(false);
+  });
+
+  it("signale une equipe qui couvre toute la duree", async () => {
+    const world = await setup();
+    const eventId = await dimancheAvecDeuxEquipes(world);
+
+    await signIn(world.member.id);
+    const detail = await getEventDetail(world.communityId, eventId);
+    if (!detail.ok) return;
+
+    const technique = detail.value.occurrences[0]!.equipes.find(
+      (e) => e.name === "Technique",
+    );
+    expect(technique?.surToutLEvenement).toBe(true);
+    const equipe1 = detail.value.occurrences[0]!.equipes.find(
+      (e) => e.name === "Equipe 1",
+    );
+    expect(equipe1?.surToutLEvenement).toBe(false);
+  });
+
+  it("n'expose pas l'effectif des equipes dans cette lecture", async () => {
+    const world = await setup();
+    const eventId = await dimancheAvecDeuxEquipes(world);
+
+    await signIn(world.member.id);
+    const detail = await getEventDetail(world.communityId, eventId);
+    if (!detail.ok) return;
+    // La liste dit qui sert, pas avec qui.
+    expect(JSON.stringify(detail.value.occurrences[0]!.equipes)).not.toContain(
+      world.memberMembershipId,
+    );
+  });
+
+  it("exige la disponibilite sur tous les sous-evenements pour une equipe qui couvre la duree", async () => {
+    const world = await setup();
+    const eventId = await dimancheAvecDeuxEquipes(world);
+
+    const detail = await getEventDetail(world.communityId, eventId);
+    if (!detail.ok) return;
+    const slotId = detail.value.postesOuvertsEvenement[0]!.slotId;
+
+    await signIn(world.member.id);
+    // Disponible sur deux sous-evenements sur trois : pas assez.
+    await answerAvailability(world.communityId, {
+      eventId,
+      sessionIds: [
+        detail.value.sessions[0]!.id,
+        detail.value.sessions[1]!.id,
+      ],
+      answer: "disponible",
+    });
+    const partiel = await selfAssign(world.communityId, { slotId });
+    expect(partiel.ok).toBe(false);
+    if (!partiel.ok) expect(partiel.code).toBe("disponibilite_requise");
+
+    await answerAvailability(world.communityId, {
+      eventId,
+      sessionIds: [detail.value.sessions[2]!.id],
+      answer: "disponible",
+    });
+    const complet = await selfAssign(world.communityId, { slotId });
+    expect(complet.ok).toBe(true);
+  });
+});

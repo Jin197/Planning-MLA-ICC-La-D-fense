@@ -132,7 +132,7 @@ export function OngletApercu({
             sousTitre={
               vue.sessions.length === 0
                 ? "Une seule reponse pour cet evenement."
-                : "Selectionnez un ou plusieurs sous-evenements, puis repondez en une fois."
+                : "Chaque sous-evenement annonce les equipes qui y servent. Repondez pour un ou plusieurs d'un coup."
             }
           />
           <CardBody>
@@ -150,6 +150,7 @@ export function OngletApercu({
                     ? "a_reconfirmer"
                     : occurrence.myAvailability.answer
                   : "a_renseigner",
+                equipes: occurrence.equipes,
               }))}
               deadline={vue.event.responseDeadline}
               timezone={vue.event.timezone}
@@ -178,10 +179,45 @@ export function OngletApercu({
                 key={occurrence.sessionId ?? "evenement"}
                 communityId={communityId}
                 eventId={vue.event.id}
-                occurrence={occurrence}
-                sansSousEvenement={vue.sessions.length === 0}
+                titre={
+                  vue.sessions.length === 0
+                    ? "Postes ouverts"
+                    : `Postes ouverts - ${occurrence.label}`
+                }
+                postesOuverts={occurrence.postesOuverts}
+                mesPostes={occurrence.mesPostes}
+                disponible={
+                  occurrence.myAvailability?.answer === "disponible" &&
+                  !occurrence.myAvailability.needsReconfirmation
+                }
+                raisonIndisponible={
+                  occurrence.myAvailability?.needsReconfirmation
+                    ? "Les horaires ont change : reconfirmez votre disponibilite pour pouvoir vous positionner."
+                    : "Declarez-vous disponible ci-dessus pour pouvoir prendre un poste."
+                }
               />
             ))}
+
+            {/*
+              * Une equipe rattachee a toute la duree engage sur chaque
+              * sous-evenement : il faut donc etre disponible partout.
+              */}
+            {vue.postesOuvertsEvenement.length > 0 ||
+            vue.mesPostesEvenement.length > 0 ? (
+              <SePositionner
+                communityId={communityId}
+                eventId={vue.event.id}
+                titre="Postes ouverts - sur toute la duree de l'evenement"
+                postesOuverts={vue.postesOuvertsEvenement}
+                mesPostes={vue.mesPostesEvenement}
+                disponible={vue.occurrences.every(
+                  (o) =>
+                    o.myAvailability?.answer === "disponible" &&
+                    !o.myAvailability.needsReconfirmation,
+                )}
+                raisonIndisponible="Ces equipes servent sur toute la duree : declarez-vous disponible sur chaque sous-evenement pour pouvoir y prendre un poste."
+              />
+            ) : null}
           </CardBody>
         </Card>
       ) : null}

@@ -636,20 +636,37 @@ export async function selfAssign(
         return err("sous_evenement_inconnu", "Sous-evenement introuvable.");
       }
 
-      // 1. La disponibilite declaree commande : pas de positionnement sans
-      //    reponse, ni apres un changement d'horaire non reconfirme.
-      const availability = (
-        await tx.select("availabilities", {
-          where: { eventId: event.id, membershipId: ctx.membership.membershipId },
-        })
-      ).find((a) => a.sessionId === plan.sessionId);
-      if (!availability || availability.answer !== "disponible") {
+      /*
+       * 1. La disponibilite declaree commande : pas de positionnement sans
+       *    reponse, ni apres un changement d'horaire non reconfirme.
+       *
+       *    Une equipe rattachee a toute la duree engage sur chaque
+       *    sous-evenement : il faut alors etre disponible partout.
+       */
+      const mesReponses = await tx.select("availabilities", {
+        where: { eventId: event.id, membershipId: ctx.membership.membershipId },
+      });
+      const sessionsDeLEvenement = await tx.select("event_sessions", {
+        where: { eventId: event.id },
+      });
+      const surToutLEvenement =
+        plan.sessionId === null && sessionsDeLEvenement.length > 0;
+      const attendues: (Id | null)[] = surToutLEvenement
+        ? sessionsDeLEvenement.map((x) => x.id)
+        : [plan.sessionId];
+
+      const trouvees = attendues.map((sessionId) =>
+        mesReponses.find((a) => a.sessionId === sessionId),
+      );
+      if (trouvees.some((a) => !a || a.answer !== "disponible")) {
         return err(
           "disponibilite_requise",
-          "Declarez-vous d'abord disponible sur ce creneau pour vous y positionner.",
+          surToutLEvenement
+            ? "Cette equipe sert sur toute la duree de l'evenement : declarez-vous disponible sur chaque sous-evenement pour vous y positionner."
+            : "Declarez-vous d'abord disponible sur ce creneau pour vous y positionner.",
         );
       }
-      if (availability.needsReconfirmation) {
+      if (trouvees.some((a) => a?.needsReconfirmation)) {
         return err(
           "reconfirmation_requise",
           "Les horaires ont change : reconfirmez votre disponibilite avant de vous positionner.",

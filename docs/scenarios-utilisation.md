@@ -69,8 +69,25 @@ Pour une reponse partielle : decocher Culte 3 et Culte 4, cliquer
 « Je suis indisponible ». Le bouton **« Tous les cultes »** coche ou decoche
 tout d'un coup.
 
-> **Verifie par un test** — enregistrement par creneau, mise a jour sans
-> doublon, selection multiple.
+**Pourquoi la reponse porte sur un moment, et non sur une equipe.** Une
+disponibilite est un fait de calendrier : « suis-je libre dimanche a 9 h ? ».
+Une equipe, non. Trois consequences concretes :
+
+- un membre qui n'est dans aucune equipe pourrait encore repondre, et c'est
+  justement sa reponse qui permet a un admin de le recruter ;
+- quelqu'un present dans deux equipes ne repond qu'une fois par horaire, sans
+  risque de se contredire ;
+- l'admin dispose des disponibilites **avant** de composer les equipes.
+
+**Mais la lecture se fait par equipe.** Chaque sous-evenement annonce les
+equipes qui y servent, celles du lecteur portent la mention « - vous », les
+moments de son equipe sont **deja coches**, et un raccourci
+**« Les moments de ... »** les reselectionne d'un coup. Repondre pour les
+autres reste possible : un admin peut avoir besoin de quelqu'un ailleurs.
+
+> **Verifie par cinq tests et un test de navigateur** — equipes annoncees par
+> sous-evenement, equipes du lecteur signalees, equipe couvrant toute la
+> duree, effectif non expose, et preselection dans le navigateur.
 
 ## A1 bis. Je prends moi-meme un poste ouvert
 
