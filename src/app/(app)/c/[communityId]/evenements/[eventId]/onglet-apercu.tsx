@@ -42,8 +42,14 @@ export function OngletApercu({
 
       <Card>
         <CardHeader
-          titre="Creneaux"
-          sousTitre="Une disponibilite porte sur un creneau, pas sur la journee."
+          titre={
+            vue.sessions.length === 0 ? "Quand et ou" : "Sous-evenements"
+          }
+          sousTitre={
+            vue.sessions.length === 0
+              ? "Cet evenement est d'un seul bloc : la disponibilite porte sur lui."
+              : "Une disponibilite porte sur un sous-evenement, pas sur la journee."
+          }
           actions={
             <BoutonSourdine
               communityId={communityId}
@@ -54,56 +60,62 @@ export function OngletApercu({
         />
         <CardBody>
           <ul className="space-y-3">
-            {vue.sessions.map(({ session, myAvailability, myReason, responseSummary }) => (
+            {vue.occurrences.map((occurrence) => (
               <li
-                key={session.id}
+                key={occurrence.sessionId ?? "evenement"}
                 className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium">
-                      {session.label}
-                      {session.scheduleProvisional ? (
+                      {occurrence.label}
+                      {occurrence.scheduleProvisional ? (
                         <Badge ton="alerte" className="ml-2">
                           Horaire a definir
                         </Badge>
                       ) : null}
                     </p>
                     <p className="mt-0.5 text-sm text-nuit-doux">
-                      {session.scheduleProvisional
+                      {occurrence.scheduleProvisional
                         ? "L'horaire exact n'est pas encore fixe."
-                        : formatRange(session.startsAt, session.endsAt, vue.event.timezone)}
+                        : formatRange(
+                            occurrence.startsAt,
+                            occurrence.endsAt,
+                            vue.event.timezone,
+                          )}
                     </p>
-                    {session.locationName ? (
+                    {occurrence.locationName ? (
                       <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-nuit-doux">
                         <MapPin aria-hidden="true" className="size-3.5" />
-                        {session.locationName}
-                        {session.locationAddress ? ` - ${session.locationAddress}` : ""}
+                        {occurrence.locationName}
+                        {occurrence.locationAddress
+                          ? ` - ${occurrence.locationAddress}`
+                          : ""}
                       </p>
                     ) : null}
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
                     <BadgeDisponibilite
                       etat={
-                        myAvailability
-                          ? myAvailability.needsReconfirmation
+                        occurrence.myAvailability
+                          ? occurrence.myAvailability.needsReconfirmation
                             ? "a_reconfirmer"
-                            : myAvailability.answer
+                            : occurrence.myAvailability.answer
                           : "a_renseigner"
                       }
                     />
-                    {responseSummary ? (
+                    {occurrence.responseSummary ? (
                       <p className="text-xs text-nuit-doux">
-                        {responseSummary.disponible} dispo /{" "}
-                        {responseSummary.indisponible} indispo /{" "}
-                        {responseSummary.aRenseigner} a renseigner
+                        {occurrence.responseSummary.disponible} dispo /{" "}
+                        {occurrence.responseSummary.indisponible} indispo /{" "}
+                        {occurrence.responseSummary.aRenseigner} a renseigner
                       </p>
                     ) : null}
                   </div>
                 </div>
-                {myReason ? (
+                {occurrence.myReason ? (
                   <p className="mt-2 rounded bg-ivoire-fonce px-2 py-1 text-xs text-nuit-doux">
-                    Votre motif (prive) : {myReason}
+                    Votre motif (prive) : {occurrence.myReason}
                   </p>
                 ) : null}
               </li>
@@ -116,22 +128,26 @@ export function OngletApercu({
         <Card>
           <CardHeader
             titre="Repondre a mes disponibilites"
-            sousTitre="Selectionnez un ou plusieurs creneaux, puis repondez en une fois."
+            sousTitre={
+              vue.sessions.length === 0
+                ? "Une seule reponse pour cet evenement."
+                : "Selectionnez un ou plusieurs sous-evenements, puis repondez en une fois."
+            }
           />
           <CardBody>
             <RepondreDisponibilite
               communityId={communityId}
               eventId={vue.event.id}
-              creneaux={vue.sessions.map(({ session, myAvailability }) => ({
-                id: session.id,
-                label: session.label,
-                heure: session.scheduleProvisional
+              creneaux={vue.occurrences.map((occurrence) => ({
+                id: occurrence.sessionId,
+                label: occurrence.label,
+                heure: occurrence.scheduleProvisional
                   ? "horaire a definir"
-                  : formatTime(session.startsAt, vue.event.timezone),
-                etat: myAvailability
-                  ? myAvailability.needsReconfirmation
+                  : formatTime(occurrence.startsAt, vue.event.timezone),
+                etat: occurrence.myAvailability
+                  ? occurrence.myAvailability.needsReconfirmation
                     ? "a_reconfirmer"
-                    : myAvailability.answer
+                    : occurrence.myAvailability.answer
                   : "a_renseigner",
               }))}
               deadline={vue.event.responseDeadline}
@@ -155,6 +171,7 @@ export function OngletApercu({
             version={vue.event.version}
             titre={vue.event.title}
             description={vue.event.description}
+            evenement={vue.event}
           />
           <PanneauPublication communityId={communityId} vue={vue} conflits={conflits} />
         </>

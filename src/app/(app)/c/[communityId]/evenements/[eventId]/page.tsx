@@ -6,6 +6,7 @@ import { getEventDetail } from "@/server/services/events";
 import { conflictCountForEvent } from "@/server/services/assignments";
 import { listSongs } from "@/server/services/songs";
 import { readThread } from "@/server/services/messages";
+import { listMembers } from "@/server/services/communities";
 import { getPreferences } from "@/server/services/notifications";
 import { EVENT_STATE_HELP } from "@/domain/events";
 import { formatDateLong } from "@/lib/time";
@@ -19,7 +20,7 @@ import {
 import { BadgeEtatEvenement } from "@/components/app/status-badges";
 import { OngletsEvenement } from "./onglets";
 import { OngletApercu } from "./onglet-apercu";
-import { OngletCreneaux } from "./onglet-creneaux";
+import { OngletEquipes } from "./onglet-equipes";
 import { OngletRepetitions } from "./onglet-repetitions";
 import { OngletChants } from "./onglet-chants";
 import { OngletDressCode } from "./onglet-dress-code";
@@ -29,7 +30,7 @@ export const metadata: Metadata = { title: "Evenement" };
 
 const ONGLETS = [
   "apercu",
-  "creneaux",
+  "equipes",
   "repetitions",
   "chants",
   "dress-code",
@@ -66,12 +67,20 @@ export default async function PageEvenement({
   }
 
   const vue = detail.value;
-  const [conflits, chants, fil, preferences] = await Promise.all([
+  const [conflits, chants, fil, preferences, membres] = await Promise.all([
     vue.isAdmin ? conflictCountForEvent(communityId, eventId) : Promise.resolve(0),
     listSongs(communityId),
     readThread(communityId, eventId),
     getPreferences(),
+    // Les equipes se composent parmi les membres actifs de la communaute.
+    vue.isAdmin ? listMembers(communityId) : Promise.resolve([]),
   ]);
+  const membresActifs = membres
+    .filter((m) => m.status === "active")
+    .map((m) => ({
+      membershipId: m.membershipId,
+      name: `${m.firstName} ${m.lastName}`,
+    }));
 
   return (
     <div className="space-y-6">
@@ -84,9 +93,10 @@ export default async function PageEvenement({
           </p>
           <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{vue.event.title}</h1>
           <p className="mt-1 text-sm text-nuit-doux">
-            {vue.sessions[0]
-              ? formatDateLong(vue.sessions[0].session.startsAt, vue.event.timezone)
-              : "Aucun creneau date"}
+            {formatDateLong(vue.event.startsAt, vue.event.timezone)}
+            {vue.sessions.length > 0
+              ? ` - ${vue.sessions.length} sous-evenement(s)`
+              : ""}
           </p>
           <div className="mt-3">
             <FiletDore />
@@ -127,8 +137,12 @@ export default async function PageEvenement({
         />
       ) : null}
 
-      {onglet === "creneaux" ? (
-        <OngletCreneaux communityId={communityId} vue={vue} />
+      {onglet === "equipes" ? (
+        <OngletEquipes
+          communityId={communityId}
+          vue={vue}
+          membres={membresActifs}
+        />
       ) : null}
 
       {onglet === "repetitions" ? (

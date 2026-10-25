@@ -349,7 +349,12 @@ export interface MemberView {
   role: MembershipRole;
   status: "active" | "revoked";
   skills: string[];
-  teams: string[];
+  /**
+   * Equipes de la personne sur les evenements a venir. Les equipes etant
+   * propres a chaque evenement, cette liste se lit « ou elle sert
+   * prochainement », pas « a quelle equipe elle appartient ».
+   */
+  upcomingTeams: { eventId: Id; eventTitle: string; teamName: string }[];
 }
 
 export function initialsOf(firstName: string, lastName: string): string {
@@ -368,12 +373,24 @@ export async function listMembers(communityId: Id): Promise<MemberView[]> {
     });
     const skills = await tx.select("skills", { where: { communityId } });
     const links = await tx.select("membership_skills", { where: { communityId } });
-    const teams = await tx.select("teams", { where: { communityId } });
-    const teamLinks = await tx.select("team_memberships", { where: { communityId } });
+
+    // Equipes a venir : on ne remonte pas l'historique complet d'une
+    // personne, seulement ce qui l'engage encore.
+    const upcoming = (await tx.select("events", { where: { communityId } })).filter(
+      (e) =>
+        e.endsAt >= nowIso() && e.state !== "annule" && e.state !== "archive",
+    );
+    const teams = await tx.select("event_teams", {
+      whereIn: { eventId: upcoming.map((e) => e.id) },
+    });
+    const teamLinks = await tx.select("event_team_members", {
+      whereIn: { teamId: teams.map((t) => t.id) },
+    });
 
     const profileById = new Map(profiles.map((p) => [p.id, p]));
     const skillById = new Map(skills.map((s) => [s.id, s.label]));
-    const teamById = new Map(teams.map((t) => [t.id, t.name]));
+    const teamById = new Map(teams.map((t) => [t.id, t]));
+    const eventById = new Map(upcoming.map((e) => [e.id, e]));
 
     return memberships
       .map((m): MemberView => {
@@ -392,10 +409,20 @@ export async function listMembers(communityId: Id): Promise<MemberView[]> {
             .filter((l) => l.membershipId === m.id)
             .map((l) => skillById.get(l.skillId) ?? "")
             .filter(Boolean),
-          teams: teamLinks
+          upcomingTeams: teamLinks
             .filter((l) => l.membershipId === m.id)
-            .map((l) => teamById.get(l.teamId) ?? "")
-            .filter(Boolean),
+            .flatMap((l) => {
+              const team = teamById.get(l.teamId);
+              const event = team ? eventById.get(team.eventId) : undefined;
+              if (!team || !event) return [];
+              return [
+                {
+                  eventId: event.id,
+                  eventTitle: event.title,
+                  teamName: team.name,
+                },
+              ];
+            }),
         };
       })
       .sort((a, b) =>
@@ -505,63 +532,11 @@ export async function createSkill(
   });
 }
 
-export async function listTeams(communityId: Id) {
-  await requireCommunityAction(communityId, "communaute.voir_contenu_prive");
-  const adapter = getDataAdapter();
-  return adapter.read((tx) =>
-    tx.select("teams", { where: { communityId }, orderBy: { column: "order" } }),
-  );
-}
-
-export async function createTeam(
-  communityId: Id,
-  name: string,
-): Promise<Result<{ id: Id }>> {
-  await requireCommunityAction(communityId, "communaute.modifier");
-  const adapter = getDataAdapter();
-  const trimmed = name.trim();
-  if (trimmed === "") return err("libelle_vide", "Indiquez un nom d'equipe.");
-  return adapter.transaction(async (tx) => {
-    const existing = await tx.select("teams", { where: { communityId } });
-    const id = newId();
-    await tx.insert("teams", {
-      id,
-      communityId,
-      name: trimmed,
-      order: existing.length + 1,
-      archivedAt: null,
-    });
-    return ok({ id });
-  });
-}
-
-export async function setTeamMembers(
-  communityId: Id,
-  teamId: Id,
-  membershipIds: readonly Id[],
-): Promise<Result<{ count: number }>> {
-  await requireCommunityAction(communityId, "communaute.gerer_membres");
-  const adapter = getDataAdapter();
-  return adapter.transaction(async (tx) => {
-    const team = await tx.selectOne("teams", { where: { id: teamId, communityId } });
-    if (!team) return err("equipe_inconnue", "Equipe introuvable.");
-    await tx.removeWhere("team_memberships", { teamId });
-    const members = await tx.select("community_memberships", {
-      where: { communityId, status: "active" },
-    });
-    const valid = membershipIds.filter((id) => members.some((m) => m.id === id));
-    await tx.insertMany(
-      "team_memberships",
-      valid.map((membershipId) => ({
-        id: newId(),
-        communityId,
-        teamId,
-        membershipId,
-      })),
-    );
-    return ok({ count: valid.length });
-  });
-}
+/*
+ * Les equipes ne se gerent pas ici : elles sont creees dans un evenement, en
+ * nombre libre, et n'existent que pour lui. Voir
+ * `src/server/services/event-teams.ts`.
+ */
 
 /* -------------------------------------------------------------------------- */
 /* Modele de planning                                                         */

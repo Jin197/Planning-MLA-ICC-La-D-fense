@@ -30,9 +30,16 @@ Puis <http://localhost:3000>. Mot de passe commun : `diapason2026`.
 | `gaspard.nguema@exemple.test` | Gaspard Nguema | Piano au MLA **et** membre de la Sonorisation |
 | `anaelle.rakoto@exemple.test` | Anaelle Rakoto | Aucune adhesion, une demande en attente |
 
-Le jeu de donnees contient quatre dimanches : le **4 octobre** archive, le
-**18 octobre** publie, le **25 octobre** en collecte, un **culte EJP** du
-25 octobre dont l'horaire reste a definir, et une soiree du 21 novembre en
+**Les dates sont calculees a l'installation**, pas ecrites en dur : un jeu
+date finirait par expirer, et l'application se montrerait vide alors qu'elle
+fonctionne. L'ancre est le dernier dimanche d'octobre encore a venir, parce
+que la nuit precedente est celle du changement d'heure.
+
+Le jeu contient donc toujours quatre dimanches : un **dimanche archive**
+(trois semaines avant), le **dimanche publie** (une semaine avant), le
+**dimanche en collecte** (l'ancre), un **culte EJP** le meme jour dont
+l'horaire reste a definir, et une **soiree d'anniversaire** un mois plus tard,
+sans sous-evenement, en
 brouillon.
 
 Pour repartir d'un etat propre a tout moment : `npm run seed`.
@@ -43,13 +50,13 @@ Pour repartir d'un etat propre a tout moment : `npm run seed`.
 
 ## A1. Je reponds a mes disponibilites pour un dimanche a quatre cultes
 
-**Situation.** Le planning du 25 octobre est ouvert. Elias doit dire s'il est
+**Situation.** Le dimanche en collecte est ouvert. Elias doit dire s'il est
 la, culte par culte.
 
 **Compte.** `elias.marchand@exemple.test`
 
 1. L'accueil affiche **« Disponibilites a renseigner »** avec
-   « Cultes du dimanche 25 octobre — 4 creneau(x) sans reponse ».
+   « Cultes du dimanche ... — 4 sous-evenement(s) sans reponse ».
 2. Cliquer sur l'evenement.
 3. Les quatre creneaux sont deja coches. Cliquer **« Je suis disponible »**.
 
@@ -74,7 +81,7 @@ monde.
 **Compte.** `maelys.fontaine@exemple.test`, puis `elias.marchand@exemple.test`,
 puis `noa.bertrand@exemple.test`
 
-1. Avec Maelys : ouvrir *Cultes du dimanche 18 octobre*. Le culte 1 affiche
+1. Avec Maelys : ouvrir *le dimanche publie*. Le culte 1 affiche
    **Disponible**, le culte 2 **Indisponible**, et son motif apparait sous le
    creneau avec la mention « (prive) ».
 2. Se deconnecter, se connecter avec **Elias**. Planning → vue **Tableau**.
@@ -94,7 +101,7 @@ communs.
 
 ## A3. Je confirme ma participation, ou je signale un empechement
 
-**Situation.** Le planning du 18 octobre est publie. Liora est au micro tenor
+**Situation.** Le dimanche publie l'est. Liora est au micro tenor
 et doit confirmer.
 
 **Compte.** `liora.mendy@exemple.test`
@@ -119,11 +126,11 @@ supprimee, pour que personne ne disparaisse du planning sans trace.
 ## A4. Je me desiste la veille
 
 **Situation.** Elias est confirme au piano pour les cultes 1 et 2 du
-18 octobre, mais il ne pourra finalement pas venir le matin.
+dimanche publie, mais il ne pourra finalement pas venir le matin.
 
 **Compte.** `elias.marchand@exemple.test`, puis `noa.bertrand@exemple.test`
 
-1. Avec Elias : ouvrir *Cultes du dimanche 18 octobre*.
+1. Avec Elias : ouvrir *le dimanche publie*.
 2. Dans **« Repondre a mes disponibilites »**, ne cocher que **Culte 1**,
    saisir un motif, puis cliquer **« Je suis indisponible »**.
 3. Se connecter avec **Noa** et ouvrir **Notifications**.
@@ -142,12 +149,12 @@ L'accueil de Noa affiche aussi le compteur « affectation(s) a remplacer » dans
 
 ## A5. Je reponds a une repetition de nuit
 
-**Situation.** Deux repetitions sont prevues pour le 25 octobre, dont une qui
+**Situation.** Deux repetitions sont prevues pour le dimanche en collecte, dont une qui
 se termine apres minuit.
 
 **Compte.** n'importe quel membre du MLA
 
-1. Ouvrir *Cultes du dimanche 25 octobre* → onglet **Repetitions**.
+1. Ouvrir *le dimanche en collecte* → onglet **Repetitions**.
 2. Repondre « Disponible » a la **Repetition de nuit**.
 
 **A observer.** La repetition du vendredi 23 octobre affiche
@@ -167,7 +174,7 @@ disponible le dimanche ne dit rien du vendredi soir.
 
 **Compte.** `liora.mendy@exemple.test`
 
-1. Ouvrir *Cultes du dimanche 18 octobre* → onglet **Discussion**.
+1. Ouvrir *le dimanche publie* → onglet **Discussion**.
 2. Sous son propre message, cliquer **« Modifier »**, corriger, enregistrer.
 
 **A observer.** Le bouton n'apparait que sous **ses** messages : l'edition est
@@ -215,22 +222,37 @@ la repetition du vendredi soir.
 **Compte.** `noa.bertrand@exemple.test`
 
 1. Planning → **Nouvel evenement**.
-2. Nom : « Cultes du dimanche 1er novembre ».
-3. Cliquer **« Modele : 4 cultes du dimanche »** : les quatre creneaux sont
+2. Nom : « Cultes du dimanche 1er novembre ». Date du 1er novembre,
+   09:00 → 18:45 : c'est l'horaire de l'evenement lui-meme.
+3. Cliquer **« Modele : 4 cultes du dimanche »** : quatre sous-evenements sont
    crees avec leurs horaires habituels. Saisir la date du premier ; elle se
    propage.
-4. Cocher **Equipe 1** et **Equipe 2**.
+4. Section **Equipes de cet evenement** : « Equipe 1 », rattachee aux
+   sous-evenements 1 et 2 ; **« Ajouter une equipe »** pour « Equipe 2 »,
+   rattachee aux 3 et 4. Cocher au passage leur effectif.
 5. **Ajouter une repetition** : vendredi 30 octobre, 22:00 → date de fin
    **31 octobre**, 00:30, Studio Hyacinthe, studio 1.
 6. Limite de reponse : 29 octobre, 20:00. Laisser coche
    **« Ouvrir tout de suite la collecte »**.
 
-**A observer.** Chaque creneau demande **une date et une heure** de debut
+**A observer.** Chaque horaire demande **une date et une heure** de debut
 **et** de fin : une heure seule ne suffirait pas a planifier une repetition
-qui passe minuit. A la creation, un plan est prepare pour chaque equipe sur
-chaque creneau, avec **les 15 postes du modele MLA** deja en place — rien a
-ressaisir. Les membres actifs recoivent une notification d'ouverture de
-collecte.
+qui passe minuit. Chaque rattachement d'equipe recoit **les 15 postes du
+modele MLA** deja en place — rien a ressaisir. Les membres actifs recoivent
+une notification d'ouverture de collecte, et une tache d'envoi par mail est
+enregistree pour chacun.
+
+**Sans sous-evenement.** Les sous-evenements sont facultatifs. Pour une soiree
+d'anniversaire, on saute l'etape 3 : l'evenement reste d'un seul bloc, son
+equipe couvre toute sa duree, et les membres repondent une seule fois — sur
+l'evenement. La demonstration contient un tel evenement,
+*Soiree speciale anniversaire*.
+
+**Les equipes appartiennent a l'evenement.** Leur nom et leur effectif sont
+saisis ici et disparaissent avec lui : « Equipe 1 » du 1er novembre et
+« Equipe 1 » du 8 novembre sont deux equipes distinctes. Pour repartir d'une
+composition connue, dupliquez l'evenement : ses equipes et leur effectif sont
+recopies.
 
 ## B2. Je compose les equipes, avec un LEAD different entre deux cultes
 
@@ -239,8 +261,8 @@ collecte.
 
 **Compte.** `noa.bertrand@exemple.test`
 
-1. Ouvrir *Cultes du dimanche 18 octobre* → onglet
-   **Creneaux et equipes**.
+1. Ouvrir *le dimanche publie* → onglet
+   **Equipes et postes**.
 2. Comparer le poste **LEAD** du culte 1 et celui du culte 2.
 3. Sur un poste vide, cliquer **« Affecter sur « ... » »**.
 
@@ -266,7 +288,7 @@ n'a pas repondu pour ce creneau — et il sonorise ce matin-la.
 
 **Compte.** `noa.bertrand@exemple.test`
 
-1. *Cultes du dimanche 18 octobre* → **Creneaux et equipes** → culte 1,
+1. *le dimanche publie* → **Equipes et postes** → culte 1,
    Equipe 1 → **« Affecter sur « Piano » »**.
 2. Gaspard **n'apparait pas** dans la liste par defaut.
 3. Cocher **« Tous les membres »** : il apparait.
@@ -300,7 +322,7 @@ modifiee**, et il est informe qu'il doit confirmer.
 
 **Compte.** `noa.bertrand@exemple.test`
 
-1. Ouvrir *Cultes du dimanche 25 octobre* → section
+1. Ouvrir *le dimanche en collecte* → section
    **« Avant publication »**.
 2. Lire les alertes, puis cocher la confirmation et publier.
 
@@ -320,9 +342,9 @@ Un planning peut etre **complet** avec des postes facultatifs vides : Guitare
 et Mass Choir sont a zero par defaut, comme dans le classeur ou ils sont
 souvent « N/A ».
 
-Essayez ensuite *Culte EJP 25 octobre* : son horaire est marque **« a
+Essayez ensuite *le culte EJP* : son horaire est marque **« a
 definir »**, ce qui **bloque** la publication — pas une alerte, un blocage.
-L'horaire doit etre fixe dans l'onglet « Creneaux et equipes »,
+L'horaire doit etre fixe dans l'onglet « Equipes et postes »,
 **« Modifier ce creneau »**.
 
 > **Verifie par deux tests** — controles et confirmation explicite, blocage
@@ -334,7 +356,7 @@ L'horaire doit etre fixe dans l'onglet « Creneaux et equipes »,
 
 **Compte.** `noa.bertrand@exemple.test`
 
-1. *Cultes du dimanche 25 octobre* → **Creneaux et equipes** →
+1. *le dimanche en collecte* → **Equipes et postes** →
    **« Modifier ce creneau »** (ou l'onglet Repetitions pour une repetition).
 2. Changer l'heure de debut, enregistrer.
 
@@ -348,10 +370,15 @@ A l'inverse, corriger le **nom ou la description** depuis
 **« Informations de l'evenement »** ne remet **aucune** reponse a zero.
 
 **Et si un culte s'ajoute en cours de route ?** Dans l'onglet
-**Creneaux et equipes**, le bouton **« Completer »** permet d'ajouter un
-creneau a un evenement deja cree — avec les postes du modele — ou de preparer
-le plan d'une equipe supplementaire sur un creneau existant. Une equipe ne
-peut avoir qu'un seul plan par creneau.
+**Equipes et postes**, **« Ajouter un sous-evenement »** l'ajoute a un
+evenement deja cree, en y rattachant les equipes cochees — avec les postes du
+modele. Une equipe ne peut etre rattachee qu'une fois au meme
+sous-evenement.
+
+**Le premier sous-evenement d'un evenement qui n'en avait pas** deplace la
+question posee aux membres : elle portait sur l'evenement, elle porte
+desormais sur lui. Les reponses deja donnees lui sont rattachees, et
+l'application l'annonce avant la validation : personne ne perd sa reponse.
 
 > **Verifie par deux tests** — seuil de declenchement de la reconfirmation, et
 > correction de description sans effet sur les reponses ni les confirmations.
@@ -385,7 +412,7 @@ dans le classeur mais pas installe par defaut.
 1. **Parametres** → **« Postes du modele »**.
 2. Dans « Ajouter un champ », choisir **Referent Coordination** dans les
    suggestions, effectif minimum 0, puis ajouter.
-3. Creer un nouvel evenement, puis rouvrir *Cultes du dimanche 18 octobre*.
+3. Creer un nouvel evenement, puis rouvrir *le dimanche publie*.
 
 **A observer.** Le nouveau poste apparait dans les **nouveaux** plans. Les
 plans deja crees gardent leurs postes, leurs libelles et leurs affectations :
@@ -396,7 +423,7 @@ l'archiver. Un poste **encore utilise dans l'historique** est **archive**, pas
 supprime — les affectations passees restent lisibles.
 
 Pour une adaptation limitee a un seul evenement, utilisez
-**« Reglages »** sur le poste, dans l'onglet « Creneaux et equipes » :
+**« Reglages »** sur le poste, dans l'onglet « Equipes et postes » :
 renommer, changer l'effectif, ou decocher
 **« Poste utilise pour cet evenement »**.
 
@@ -462,7 +489,7 @@ demandez les chants, le dress-code et les repetitions. Elle ne reprend
 affectations ne sont recopiees que si vous le cochez explicitement, et elles
 reviennent toutes a **A confirmer**.
 
-Ouvrez *Cultes du dimanche 4 octobre* (archive) pour voir l'historique en
+Ouvrez *le dimanche archive* (archive) pour voir l'historique en
 lecture seule.
 
 > **Verifie par trois tests** — publication revelant le plan, archive en
@@ -600,14 +627,13 @@ de version est affiche sous le formulaire.
 
 **Comptes.** `noa.bertrand@exemple.test` puis `elias.marchand@exemple.test`
 
-1. Avec Noa, affecter quelqu'un sur *Cultes du dimanche 25 octobre* (en
-   collecte).
-2. Avec Elias, ouvrir le meme evenement, onglet **Creneaux et equipes**.
+1. Avec Noa, affecter quelqu'un sur *le dimanche en collecte*.
+2. Avec Elias, ouvrir le meme evenement, onglet **Equipes et postes**.
 
 **A observer.** Elias peut consulter l'evenement et repondre, mais voit
 **« Plan non encore publie »** : les affectations en preparation restent
-reservees aux admins jusqu'a la publication. L'evenement en brouillon du
-21 novembre, lui, n'apparait nulle part pour un membre.
+reservees aux admins jusqu'a la publication. La soiree d'anniversaire, encore
+en brouillon, n'apparait elle nulle part pour un membre.
 
 > **Verifie par quatre tests** — collecte sans exposition du plan, brouillon
 > invisible, publication qui revele, archive en lecture seule.

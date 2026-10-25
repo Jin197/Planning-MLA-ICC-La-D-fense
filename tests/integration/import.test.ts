@@ -129,7 +129,7 @@ describe.skipIf(!classeurPresent)("parcours d'import controle", () => {
 
     const avant = await tx(async (t) => ({
       events: (await t.select("events")).length,
-      availabilities: (await t.select("session_availabilities")).length,
+      availabilities: (await t.select("availabilities")).length,
       assignments: (await t.select("assignments")).length,
       songs: (await t.select("songs")).length,
     }));
@@ -144,7 +144,7 @@ describe.skipIf(!classeurPresent)("parcours d'import controle", () => {
 
     const apres = await tx(async (t) => ({
       events: (await t.select("events")).length,
-      availabilities: (await t.select("session_availabilities")).length,
+      availabilities: (await t.select("availabilities")).length,
       assignments: (await t.select("assignments")).length,
       songs: (await t.select("songs")).length,
       rows: (await t.select("import_rows")).length,
@@ -293,7 +293,7 @@ describe.skipIf(!classeurPresent)("parcours d'import controle", () => {
 
     await importerDefinitivement(communityId, analyse.value.jobId);
     const dispos = await tx((t) =>
-      t.select("session_availabilities", { where: { communityId } }),
+      t.select("availabilities", { where: { communityId } }),
     );
     if (dispos.length > 0) {
       expect(dispos.every((d) => d.needsReconfirmation)).toBe(true);

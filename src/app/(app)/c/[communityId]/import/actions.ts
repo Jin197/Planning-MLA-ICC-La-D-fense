@@ -109,6 +109,6 @@ export async function actionImporter(
 
   const r = result.value;
   return succes(
-    `Import applique : ${r.evenementsCrees} evenement(s) en brouillon, ${r.creneauxCrees} creneau(x) a horaire a definir, ${r.repetitionsCreees} repetition(s), ${r.affectationsCreees} affectation(s) a confirmer, ${r.disponibilitesCreees} disponibilite(s) a reconfirmer, ${r.chantsCrees} chant(s), ${r.dressCodesCrees} dress-code(s). ${r.rejets.length} ligne(s) rejetee(s) et ${r.evenementsIgnores.length} evenement(s) deja presents ignores.`,
+    `Import applique : ${r.evenementsCrees} evenement(s) en brouillon a horaire a definir, ${r.equipesCreees} equipe(s), ${r.repetitionsCreees} repetition(s), ${r.affectationsCreees} affectation(s) a confirmer, ${r.disponibilitesCreees} disponibilite(s) a reconfirmer, ${r.chantsCrees} chant(s), ${r.dressCodesCrees} dress-code(s). ${r.rejets.length} ligne(s) rejetee(s) et ${r.evenementsIgnores.length} evenement(s) deja presents ignores.`,
   );
 }

@@ -46,9 +46,11 @@ export async function upsertDressCode(
       eventState: event.state,
     });
 
+    // L'equipe visee doit appartenir a cet evenement : une consigne ne
+    // traverse pas d'un evenement a l'autre.
     if (input.teamId) {
-      const team = await tx.selectOne("teams", {
-        where: { id: input.teamId, communityId },
+      const team = await tx.selectOne("event_teams", {
+        where: { id: input.teamId, communityId, eventId: input.eventId },
       });
       if (!team) return err("equipe_inconnue", "Equipe introuvable.");
     }

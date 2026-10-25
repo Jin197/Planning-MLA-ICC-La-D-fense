@@ -26,9 +26,10 @@ type Props =
       mode: "ajouter";
       communityId: string;
       eventId: string;
-      sessionId: string;
+      /** null = liste commune a l'evenement, sans sous-evenement. */
+      sessionId: string | null;
       chants: Song[];
-      autresCreneaux: { id: string; label: string }[];
+      autresCreneaux: { id: string | null; label: string }[];
     };
 
 export function EditeurListeChants(props: Props) {
@@ -134,9 +135,9 @@ function PanneauAjout({
 }: {
   communityId: string;
   eventId: string;
-  sessionId: string;
+  sessionId: string | null;
   chants: Song[];
-  autresCreneaux: { id: string; label: string }[];
+  autresCreneaux: { id: string | null; label: string }[];
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [etatAjout, actionAjout] = useActionState(actionAjouterChant, ETAT_INITIAL);
@@ -170,7 +171,7 @@ function PanneauAjout({
         <form action={actionAjout} className="space-y-3">
           <input type="hidden" name="communityId" value={communityId} />
           <input type="hidden" name="eventId" value={eventId} />
-          <input type="hidden" name="sessionId" value={sessionId} />
+          <input type="hidden" name="sessionId" value={sessionId ?? ""} />
 
           {etatAjout.status === "erreur" ? (
             <Alerte ton="erreur">{etatAjout.message}</Alerte>
@@ -179,19 +180,19 @@ function PanneauAjout({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label
-                htmlFor={`sequence-${sessionId}`}
+                htmlFor={`sequence-${sessionId ?? "evenement"}`}
                 className="block text-xs font-medium text-nuit-doux"
               >
                 Sequence
               </label>
               <Input
-                id={`sequence-${sessionId}`}
+                id={`sequence-${sessionId ?? "evenement"}`}
                 name="sequence"
-                list={`sequences-${sessionId}`}
+                list={`sequences-${sessionId ?? "evenement"}`}
                 className="mt-1"
                 placeholder="Chant 1"
               />
-              <datalist id={`sequences-${sessionId}`}>
+              <datalist id={`sequences-${sessionId ?? "evenement"}`}>
                 {DEFAULT_SEQUENCES.map((s) => (
                   <option key={s} value={s} />
                 ))}
@@ -199,12 +200,12 @@ function PanneauAjout({
             </div>
             <div>
               <label
-                htmlFor={`song-${sessionId}`}
+                htmlFor={`song-${sessionId ?? "evenement"}`}
                 className="block text-xs font-medium text-nuit-doux"
               >
                 Chant du repertoire
               </label>
-              <Select id={`song-${sessionId}`} name="songId" className="mt-1">
+              <Select id={`song-${sessionId ?? "evenement"}`} name="songId" className="mt-1">
                 <option value="">Aucun (titre libre)</option>
                 {chants.map((chant) => (
                   <option key={chant.id} value={chant.id}>
@@ -217,23 +218,23 @@ function PanneauAjout({
 
           <div>
             <label
-              htmlFor={`titre-${sessionId}`}
+              htmlFor={`titre-${sessionId ?? "evenement"}`}
               className="block text-xs font-medium text-nuit-doux"
             >
               Titre libre (si le chant n&apos;est pas encore au repertoire)
             </label>
-            <Input id={`titre-${sessionId}`} name="titreLibre" className="mt-1" />
+            <Input id={`titre-${sessionId ?? "evenement"}`} name="titreLibre" className="mt-1" />
           </div>
 
           <div>
             <label
-              htmlFor={`lien-${sessionId}`}
+              htmlFor={`lien-${sessionId ?? "evenement"}`}
               className="block text-xs font-medium text-nuit-doux"
             >
               Lien utile (https://...)
             </label>
             <Input
-              id={`lien-${sessionId}`}
+              id={`lien-${sessionId ?? "evenement"}`}
               name="liens"
               type="url"
               className="mt-1"
@@ -247,12 +248,12 @@ function PanneauAjout({
 
           <div>
             <label
-              htmlFor={`notes-${sessionId}`}
+              htmlFor={`notes-${sessionId ?? "evenement"}`}
               className="block text-xs font-medium text-nuit-doux"
             >
               Notes
             </label>
-            <Textarea id={`notes-${sessionId}`} name="notes" rows={2} className="mt-1" />
+            <Textarea id={`notes-${sessionId ?? "evenement"}`} name="notes" rows={2} className="mt-1" />
           </div>
 
           <SubmitButton taille="compact" libelleEnCours="Ajout...">
@@ -265,17 +266,20 @@ function PanneauAjout({
         <form action={actionCopie} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="communityId" value={communityId} />
           <input type="hidden" name="eventId" value={eventId} />
-          <input type="hidden" name="cibleSessionId" value={sessionId} />
+          <input type="hidden" name="cibleSessionId" value={sessionId ?? ""} />
           <div className="min-w-0">
             <label
-              htmlFor={`source-${sessionId}`}
+              htmlFor={`source-${sessionId ?? "evenement"}`}
               className="block text-xs font-medium text-nuit-doux"
             >
-              Copier la liste d&apos;un autre creneau
+              Copier la liste d&apos;un autre sous-evenement
             </label>
-            <Select id={`source-${sessionId}`} name="sourceSessionId" className="mt-1">
+            <Select id={`source-${sessionId ?? "evenement"}`} name="sourceSessionId" className="mt-1">
               {autresCreneaux.map((creneau) => (
-                <option key={creneau.id} value={creneau.id}>
+                <option
+                  key={creneau.id ?? "evenement"}
+                  value={creneau.id ?? ""}
+                >
                   {creneau.label}
                 </option>
               ))}

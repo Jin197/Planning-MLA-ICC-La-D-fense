@@ -1,9 +1,9 @@
 import { deaccent } from "@/lib/ids";
 import type {
+  Availability,
   AvailabilityAnswer,
   AvailabilityDisplayState,
   EventSession,
-  SessionAvailability,
 } from "./types";
 
 /**
@@ -207,12 +207,12 @@ function buildPartial(
 }
 
 /**
- * Etat affiche pour un membre et un creneau. L'absence de reponse reste
+ * Etat affiche pour un membre et une occurrence. L'absence de reponse reste
  * « a renseigner » : elle n'est jamais convertie.
  */
 export function displayState(
   availability:
-    | Pick<SessionAvailability, "answer" | "needsReconfirmation">
+    | Pick<Availability, "answer" | "needsReconfirmation">
     | null
     | undefined,
 ): AvailabilityDisplayState {

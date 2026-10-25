@@ -50,3 +50,40 @@ export function urlEvenement(fragmentDuTitre: string, onglet?: string): string {
   const base = `/c/${cible.communityId}/evenements/${cible.id}`;
   return onglet ? `${base}?onglet=${onglet}` : base;
 }
+
+/*
+ * Reperes semantiques.
+ *
+ * Les dates du jeu de demonstration sont calculees a l'installation : viser
+ * un evenement par « 25 octobre » rendrait les tests dependants du calendrier.
+ * On le vise donc par ce qu'il est.
+ */
+function evenementsMla(): Instantane["events"] {
+  const { id } = communauteMla();
+  return lire().events.filter((e) => e.communityId === id);
+}
+
+/** Le dimanche publie : plan complet, visible de tous les membres. */
+export function evenementPublie(): string {
+  const trouve = evenementsMla().find(
+    (e) => e.state === "publie" && e.title.startsWith("Cultes du dimanche"),
+  );
+  if (!trouve) throw new Error("Aucun dimanche publie dans le jeu de donnees.");
+  return trouve.title;
+}
+
+/** Le dimanche en collecte : reponses ouvertes, limite encore a venir. */
+export function evenementEnCollecte(): string {
+  const trouve = evenementsMla().find(
+    (e) => e.state === "collecte" && e.title.startsWith("Cultes du dimanche"),
+  );
+  if (!trouve) throw new Error("Aucun dimanche en collecte dans le jeu de donnees.");
+  return trouve.title;
+}
+
+/** L'evenement en brouillon, sans sous-evenement. */
+export function evenementBrouillon(): string {
+  const trouve = evenementsMla().find((e) => e.state === "brouillon");
+  if (!trouve) throw new Error("Aucun brouillon dans le jeu de donnees.");
+  return trouve.title;
+}

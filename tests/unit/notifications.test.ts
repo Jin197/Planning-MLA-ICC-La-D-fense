@@ -202,6 +202,14 @@ describe("confidentialite des emails", () => {
 /** Section 5 : les controles avant publication. */
 describe("etat de preparation avant publication", () => {
   const base = {
+    event: {
+      title: "Cultes du dimanche",
+      startsAt: "2026-10-18T07:00:00.000Z",
+      endsAt: "2026-10-18T08:45:00.000Z",
+      locationName: "",
+      locationAddress: "",
+      scheduleProvisional: false,
+    },
     sessions: [
       {
         id: "s1",
@@ -216,7 +224,8 @@ describe("etat de preparation avant publication", () => {
         scheduleProvisional: false,
       },
     ],
-    plans: [{ id: "p1", sessionId: "s1", teamId: "t1" }],
+    teams: [{ id: "t1", name: "Equipe 1" }],
+    plans: [{ id: "p1", sessionId: "s1" as string | null, teamId: "t1" }],
     slots: [],
     assignments: [],
     missingResponses: 0,
@@ -229,10 +238,48 @@ describe("etat de preparation avant publication", () => {
     expect(readiness.blockers).toEqual([]);
   });
 
-  it("bloque sans creneau", () => {
-    const readiness = computePublicationReadiness({ ...base, sessions: [] });
+  /*
+   * Les sous-evenements sont facultatifs : un evenement qui n'en a aucun est
+   * publiable, a condition d'avoir une equipe rattachee a sa duree.
+   */
+  it("est prete sans sous-evenement, avec une equipe rattachee a l'evenement", () => {
+    const readiness = computePublicationReadiness({
+      ...base,
+      sessions: [],
+      plans: [{ id: "p1", sessionId: null, teamId: "t1" }],
+    });
+    expect(readiness.ready).toBe(true);
+  });
+
+  it("bloque sans equipe", () => {
+    const readiness = computePublicationReadiness({
+      ...base,
+      teams: [],
+      plans: [],
+    });
     expect(readiness.publishableWithExceptions).toBe(false);
-    expect(readiness.blockers.some((b) => b.code === "aucun_creneau")).toBe(true);
+    expect(readiness.blockers.some((b) => b.code === "aucune_equipe")).toBe(true);
+  });
+
+  it("bloque sur une equipe sans rattachement", () => {
+    const readiness = computePublicationReadiness({ ...base, plans: [] });
+    expect(readiness.publishableWithExceptions).toBe(false);
+    expect(
+      readiness.blockers.some((b) => b.code === "equipe_sans_rattachement"),
+    ).toBe(true);
+  });
+
+  it("bloque sur l'horaire provisoire de l'evenement lui-meme", () => {
+    const readiness = computePublicationReadiness({
+      ...base,
+      event: { ...base.event, scheduleProvisional: true },
+      sessions: [],
+      plans: [{ id: "p1", sessionId: null, teamId: "t1" }],
+    });
+    expect(readiness.publishableWithExceptions).toBe(false);
+    expect(readiness.blockers.some((b) => b.code === "horaire_provisoire")).toBe(
+      true,
+    );
   });
 
   it("bloque sur un horaire encore provisoire", () => {

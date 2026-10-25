@@ -14,10 +14,11 @@ async function main(): Promise<void> {
     communautes: snapshot.communities.length,
     adhesions: snapshot.community_memberships.length,
     evenements: snapshot.events.length,
-    creneaux: snapshot.event_sessions.length,
+    sousEvenements: snapshot.event_sessions.length,
+    equipes: snapshot.event_teams.length,
     postes: snapshot.event_role_slots.length,
     affectations: snapshot.assignments.length,
-    disponibilites: snapshot.session_availabilities.length,
+    disponibilites: snapshot.availabilities.length,
     repetitions: snapshot.rehearsals.length,
   };
   console.log("Donnees de demonstration installees.");

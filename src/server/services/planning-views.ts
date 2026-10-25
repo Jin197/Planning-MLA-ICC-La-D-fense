@@ -1,6 +1,7 @@
 import "server-only";
 import { localDayKey } from "@/lib/time";
 import { displayState } from "@/domain/availability";
+import { occurrencesOf } from "@/domain/events";
 import { canSeeAssignments, canSeeEvent } from "@/domain/permissions";
 import type {
   AssignmentState,
@@ -16,17 +17,24 @@ import { requireActiveMembership } from "../auth/context";
  * les memes donnees. Le tableau n'est pas une seconde source de verite.
  */
 
+/**
+ * Une occurrence du planning : un sous-evenement, ou l'evenement lui-meme
+ * quand il n'en a aucun.
+ */
 export interface VueCreneau {
-  id: Id;
+  /** Cle d'affichage : identifiant du sous-evenement, ou de l'evenement. */
+  cle: Id;
+  /** null quand l'occurrence est l'evenement lui-meme. */
+  sessionId: Id | null;
   label: string;
   ordinal: number;
   startsAt: string;
   endsAt: string;
   locationName: string;
   scheduleProvisional: boolean;
-  /** Ma reponse sur ce creneau. */
+  /** Ma reponse sur cette occurrence. */
   maDisponibilite: AvailabilityDisplayState;
-  /** Mes postes sur ce creneau, si le plan est visible. */
+  /** Mes postes sur cette occurrence, si le plan est visible. */
   mesPostes: { label: string; state: AssignmentState }[];
   /** Effectif : postes a completer, pour les admins. */
   postesACompleter: number;
@@ -56,7 +64,7 @@ export interface LignePersonne {
   nom: string;
   initiales: string;
   competences: string[];
-  /** Par creneau : etat de disponibilite et postes tenus. */
+  /** Par occurrence : etat de disponibilite et postes tenus. */
   cellules: Record<
     Id,
     {
@@ -74,8 +82,15 @@ export interface VuePlanning {
   timezone: string;
   estAdmin: boolean;
   evenements: VueEvenement[];
-  /** Colonnes du tableau : creneaux dans l'ordre chronologique. */
-  colonnes: { sessionId: Id; eventId: Id; eventTitle: string; label: string; startsAt: string }[];
+  /** Colonnes du tableau : occurrences dans l'ordre chronologique. */
+  colonnes: {
+    cle: Id;
+    sessionId: Id | null;
+    eventId: Id;
+    eventTitle: string;
+    label: string;
+    startsAt: string;
+  }[];
   lignes: LignePersonne[];
 }
 
@@ -97,12 +112,26 @@ export async function loadVuePlanning(
       .filter((e) => (options.inclureArchives ? true : e.state !== "archive"));
     const eventIds = evenements.map((e) => e.id);
 
-    const creneaux = (await tx.select("event_sessions", { whereIn: { eventId: eventIds } }))
-      .filter((s) => {
-        if (options.from && s.startsAt < options.from) return false;
-        if (options.to && s.startsAt > options.to) return false;
-        return true;
-      })
+    const sousEvenements = await tx.select("event_sessions", {
+      whereIn: { eventId: eventIds },
+    });
+
+    const dansLaFenetre = (startsAt: string) => {
+      if (options.from && startsAt < options.from) return false;
+      if (options.to && startsAt > options.to) return false;
+      return true;
+    };
+
+    // Occurrences retenues, tous evenements confondus : les sous-evenements,
+    // et les evenements qui n'en ont pas.
+    const occurrences = evenements
+      .flatMap((event) =>
+        occurrencesOf(
+          event,
+          sousEvenements.filter((s) => s.eventId === event.id),
+        ).map((o, index) => ({ ...o, event, ordinal: index + 1 })),
+      )
+      .filter((o) => dansLaFenetre(o.startsAt))
       .sort((a, b) => (a.startsAt < b.startsAt ? -1 : 1));
 
     const plans = await tx.select("event_plans", { whereIn: { eventId: eventIds } });
@@ -112,8 +141,8 @@ export async function loadVuePlanning(
     const assignments = (
       await tx.select("assignments", { whereIn: { planId: plans.map((p) => p.id) } })
     ).filter((a) => a.state !== "retiree");
-    const availabilities = await tx.select("session_availabilities", {
-      whereIn: { sessionId: creneaux.map((s) => s.id) },
+    const availabilities = await tx.select("availabilities", {
+      whereIn: { eventId: eventIds },
     });
     const reasons = estAdmin
       ? await tx.select("availability_reasons", {
@@ -148,7 +177,7 @@ export async function loadVuePlanning(
 
     const vueEvenements: VueEvenement[] = evenements
       .map((event): VueEvenement | null => {
-        const own = creneaux.filter((s) => s.eventId === event.id);
+        const own = occurrences.filter((o) => o.event.id === event.id);
         if (own.length === 0) return null;
         const planVisible = canSeeAssignments(ctx.membership, event.state);
         const lastRead = cursorByEvent.get(event.id) ?? "1970-01-01T00:00:00.000Z";
@@ -159,13 +188,16 @@ export async function loadVuePlanning(
           state: event.state,
           timezone: event.timezone,
           jour: localDayKey(own[0]!.startsAt, event.timezone),
-          creneaux: own.map((session): VueCreneau => {
+          creneaux: own.map((occurrence): VueCreneau => {
             const mine = availabilities.find(
               (a) =>
-                a.sessionId === session.id &&
+                a.eventId === event.id &&
+                a.sessionId === occurrence.sessionId &&
                 a.membershipId === ctx.membership.membershipId,
             );
-            const sessionPlans = plans.filter((p) => p.sessionId === session.id);
+            const sessionPlans = plans.filter(
+              (p) => p.eventId === event.id && p.sessionId === occurrence.sessionId,
+            );
             const sessionSlots = slots.filter((s) =>
               sessionPlans.some((p) => p.id === s.planId),
             );
@@ -180,20 +212,21 @@ export async function loadVuePlanning(
               : 0;
 
             return {
-              id: session.id,
-              label: session.label,
-              ordinal: session.ordinal,
-              startsAt: session.startsAt,
-              endsAt: session.endsAt,
-              locationName: session.locationName,
-              scheduleProvisional: session.scheduleProvisional,
+              cle: occurrence.sessionId ?? event.id,
+              sessionId: occurrence.sessionId,
+              label: occurrence.label,
+              ordinal: occurrence.ordinal,
+              startsAt: occurrence.startsAt,
+              endsAt: occurrence.endsAt,
+              locationName: occurrence.locationName,
+              scheduleProvisional: occurrence.scheduleProvisional,
               maDisponibilite: displayState(mine),
               mesPostes: planVisible
                 ? assignments
                     .filter(
                       (a) =>
                         a.membershipId === ctx.membership.membershipId &&
-                        planById.get(a.planId)?.sessionId === session.id,
+                        sessionPlans.some((p) => p.id === a.planId),
                     )
                     .map((a) => ({
                       label: slotById.get(a.slotId)?.label ?? "Poste",
@@ -229,17 +262,15 @@ export async function loadVuePlanning(
       .filter((e): e is VueEvenement => e !== null);
 
     /* Tableau : memes donnees, presentation en grille. */
-    const colonnes = creneaux
-      .filter((s) => {
-        const event = evenements.find((e) => e.id === s.eventId);
-        return event !== undefined && event.state !== "brouillon";
-      })
-      .map((s) => ({
-        sessionId: s.id,
-        eventId: s.eventId,
-        eventTitle: evenements.find((e) => e.id === s.eventId)?.title ?? "",
-        label: s.label,
-        startsAt: s.startsAt,
+    const colonnes = occurrences
+      .filter((o) => o.event.state !== "brouillon")
+      .map((o) => ({
+        cle: o.sessionId ?? o.event.id,
+        sessionId: o.sessionId,
+        eventId: o.event.id,
+        eventTitle: o.event.title,
+        label: o.label,
+        startsAt: o.startsAt,
       }));
 
     const lignes: LignePersonne[] = memberships
@@ -249,7 +280,9 @@ export async function loadVuePlanning(
         for (const colonne of colonnes) {
           const availability = availabilities.find(
             (a) =>
-              a.sessionId === colonne.sessionId && a.membershipId === membership.id,
+              a.eventId === colonne.eventId &&
+              a.sessionId === colonne.sessionId &&
+              a.membershipId === membership.id,
           );
           const event = evenements.find((e) => e.id === colonne.eventId);
           const planVisible = event
@@ -262,15 +295,18 @@ export async function loadVuePlanning(
             reason !== undefined &&
             (estAdmin || reason.authorUserId === ctx.viewer.userId);
 
-          cellules[colonne.sessionId] = {
+          cellules[colonne.cle] = {
             disponibilite: displayState(availability),
             postes: planVisible
               ? assignments
-                  .filter(
-                    (a) =>
+                  .filter((a) => {
+                    const plan = planById.get(a.planId);
+                    return (
                       a.membershipId === membership.id &&
-                      planById.get(a.planId)?.sessionId === colonne.sessionId,
-                  )
+                      plan?.eventId === colonne.eventId &&
+                      plan.sessionId === colonne.sessionId
+                    );
+                  })
                   .map((a) => slotById.get(a.slotId)?.label ?? "Poste")
               : [],
             motif: peutLire ? (reason?.text ?? null) : null,

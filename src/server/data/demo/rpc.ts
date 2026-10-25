@@ -106,19 +106,8 @@ async function createCommunityWithAdmin(
   await tx.insert("planning_templates", template);
   await tx.insertMany("template_fields", fields);
 
-  const teamNames =
-    type === "MLA" ? ["Equipe 1", "Equipe 2"] : ["Equipe 1"];
-  await tx.insertMany(
-    "teams",
-    teamNames.map((name, i) => ({
-      id: newId(),
-      communityId,
-      name,
-      order: i + 1,
-      archivedAt: null,
-    })),
-  );
-
+  // Aucune equipe n'est creee ici : une equipe appartient a un evenement et
+  // se cree dans celui-ci.
   const skillLabels =
     type === "MLA"
       ? [
@@ -313,11 +302,24 @@ async function revokeMembership(
   const sessions = await tx.select("event_sessions", {
     where: { communityId: membership.communityId },
   });
+  const events = await tx.select("events", {
+    where: { communityId: membership.communityId },
+  });
   const futureSessionIds = new Set(
     sessions.filter((s) => s.startsAt > at).map((s) => s.id),
   );
+  const futureEventIds = new Set(
+    events.filter((e) => e.startsAt > at).map((e) => e.id),
+  );
+  // Un plan rattache a tout l'evenement suit l'horaire de l'evenement.
   const futurePlanIds = new Set(
-    plans.filter((p) => futureSessionIds.has(p.sessionId)).map((p) => p.id),
+    plans
+      .filter((p) =>
+        p.sessionId === null
+          ? futureEventIds.has(p.eventId)
+          : futureSessionIds.has(p.sessionId),
+      )
+      .map((p) => p.id),
   );
 
   const assignments = await tx.select("assignments", {
@@ -398,17 +400,23 @@ async function publishEvent(
     })
   ).filter((a) => a.state !== "retiree");
 
-  const availabilities = await tx.select("session_availabilities", {
-    whereIn: { sessionId: sessions.map((s) => s.id) },
+  const teams = await tx.select("event_teams", { where: { eventId: event.id } });
+  const availabilities = await tx.select("availabilities", {
+    where: { eventId: event.id },
   });
   const members = await tx.select("community_memberships", {
     where: { communityId: event.communityId, status: "active" },
   });
-  const expected = sessions.length * members.length;
+  // Les sous-evenements etant facultatifs, un evenement qui n'en a aucun
+  // compte pour une occurrence : la sienne.
+  const occurrences = Math.max(1, sessions.length);
+  const expected = occurrences * members.length;
   const missingResponses = Math.max(0, expected - availabilities.length);
 
   const readiness = computePublicationReadiness({
+    event,
     sessions,
+    teams,
     plans,
     slots,
     assignments,

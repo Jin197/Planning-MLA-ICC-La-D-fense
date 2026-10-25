@@ -19,9 +19,9 @@ Legende : **fait** = implemente et verifie par un test ou au navigateur ;
 | Demandes d'adhesion, decisions | fait | Dont le blocage des demandes en double |
 | Roles admin / membre, dernier admin protege | fait | Y compris deux retrogradations simultanees |
 | Modeles MLA et Star | fait | `tests/unit/template.test.ts` : 21 champs MLA, Star 1 a 4 |
-| Evenements, creneaux, equipes, plans | fait | Creation multi-creneaux et multi-equipes, **ajout d'un creneau ou d'une equipe apres coup** |
+| Evenements, sous-evenements, equipes | fait | Sous-evenements **facultatifs** (0..n), equipes creees dans l'evenement en nombre libre, rattachees a un sous-evenement ou a toute la duree, **ajout apres coup** |
 | Repetitions | fait | Franchissement de minuit et changement d'heure testes |
-| Disponibilites par creneau | fait | Reponses differentes aux cultes 1 et 2 |
+| Disponibilites par occurrence | fait | Reponses differentes aux cultes 1 et 2 ; une seule reponse quand l'evenement n'a pas de sous-evenement |
 | Motifs prives | fait | Table separee, RLS dediee, verifie par service et au navigateur |
 | Affectations multiples, exceptions | fait | Doublons refuses, motif administratif exige |
 | Publication avec controles | fait | Bloquants, alertes, confirmation explicite |
@@ -44,7 +44,7 @@ Legende : **fait** = implemente et verifie par un test ou au navigateur ;
 
 | Element | Etat | Verification |
 | --- | --- | --- |
-| Bibliotheque de chants, listes par creneau | fait | Copie explicite entre creneaux |
+| Bibliotheque de chants, listes par occurrence | fait | Copie explicite entre sous-evenements |
 | Dress-code, variantes par equipe | fait | Couleurs avec code ecrit, texte alternatif exige |
 | Moodboards (fichiers) | fait | Televersement, texte alternatif obligatoire, format verifie **sur le contenu** du fichier, stockage hors de `public/`, lecture par route authentifiee. 12 tests. Le bucket Supabase Storage reste non branche |
 | Import controle du classeur | fait | 16 tests sur le classeur reel |

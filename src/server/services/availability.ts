@@ -2,6 +2,7 @@ import "server-only";
 import { newId } from "@/lib/ids";
 import { nowIso } from "@/lib/time";
 import { err, ok, type Result } from "@/lib/result";
+import { occurrencesOf } from "@/domain/events";
 import { canReadReason } from "@/domain/permissions";
 import type { AvailabilityAnswer, Id } from "@/domain/types";
 import { getDataAdapter } from "../data";
@@ -10,12 +11,18 @@ import { requireActiveMembership } from "../auth/context";
 import { enqueueNotifications } from "../notifications/enqueue";
 
 /**
- * Disponibilites. Une reponse porte sur un creneau, jamais sur une journee.
+ * Disponibilites. Une reponse porte sur une occurrence — un sous-evenement,
+ * ou l'evenement lui-meme quand il n'en a aucun — jamais sur une journee.
  * L'interface peut proposer une selection multiple, mais elle enregistre une
- * reponse par creneau choisi.
+ * reponse par occurrence choisie.
  */
 
 export interface AnswerInput {
+  eventId: Id;
+  /**
+   * Sous-evenements vises. Laisser vide quand l'evenement n'a pas de
+   * sous-evenement : la reponse porte alors sur l'evenement.
+   */
   sessionIds: Id[];
   answer: AvailabilityAnswer;
   /** Motif facultatif, prive : auteur et admins de la communaute seulement. */
@@ -28,52 +35,65 @@ export async function answerAvailability(
 ): Promise<Result<{ saved: number }>> {
   const ctx = await requireActiveMembership(communityId);
   const adapter = getDataAdapter();
-  if (input.sessionIds.length === 0) {
-    return err("aucun_creneau", "Choisissez au moins un creneau.");
-  }
 
   try {
     return await adapter.transaction(async (tx) => {
-      const sessions = await tx.select("event_sessions", {
-        whereIn: { id: input.sessionIds },
-        where: { communityId },
+      const event = await tx.selectOne("events", {
+        where: { id: input.eventId, communityId },
       });
-      if (sessions.length === 0) {
-        return err("creneau_inconnu", "Creneau introuvable.");
-      }
+      if (!event) return err("evenement_inconnu", "Evenement introuvable.");
 
-      const events = await tx.select("events", {
-        whereIn: { id: [...new Set(sessions.map((s) => s.eventId))] },
-      });
       const openStates = new Set(["collecte", "publie"]);
-      const blocked = events.filter((e) => !openStates.has(e.state));
-      if (blocked.length > 0) {
+      if (!openStates.has(event.state)) {
         return err(
           "collecte_fermee",
           "Les reponses ne sont pas ouvertes pour cet evenement.",
         );
       }
-      const past = events.filter(
-        (e) => e.responseDeadline !== null && e.responseDeadline < nowIso(),
-      );
-      if (past.length > 0) {
+      if (event.responseDeadline !== null && event.responseDeadline < nowIso()) {
         return err(
           "limite_depassee",
           "La limite de reponse est depassee. Contactez un admin.",
         );
       }
 
+      const sessions = await tx.select("event_sessions", {
+        where: { eventId: event.id },
+      });
+
+      // Les occurrences visees : les sous-evenements choisis, ou l'evenement
+      // lui-meme s'il n'en a pas.
+      let targets: (Id | null)[];
+      if (sessions.length === 0) {
+        targets = [null];
+      } else {
+        targets = sessions
+          .filter((s) => input.sessionIds.includes(s.id))
+          .map((s) => s.id);
+        if (targets.length === 0) {
+          return err(
+            "aucun_sous_evenement",
+            "Choisissez au moins un sous-evenement.",
+          );
+        }
+      }
+
       const at = nowIso();
       let saved = 0;
 
-      for (const session of sessions) {
-        const existing = await tx.selectOne("session_availabilities", {
-          where: { sessionId: session.id, membershipId: ctx.membership.membershipId },
-        });
+      for (const sessionId of targets) {
+        const existing = (
+          await tx.select("availabilities", {
+            where: {
+              eventId: event.id,
+              membershipId: ctx.membership.membershipId,
+            },
+          })
+        ).find((a) => a.sessionId === sessionId);
 
         let availabilityId: Id;
         if (existing) {
-          const updated = await tx.update("session_availabilities", existing.id, {
+          const updated = await tx.update("availabilities", existing.id, {
             answer: input.answer,
             needsReconfirmation: false,
             updatedAt: at,
@@ -81,10 +101,11 @@ export async function answerAvailability(
           availabilityId = updated.id;
         } else {
           availabilityId = newId();
-          await tx.insert("session_availabilities", {
+          await tx.insert("availabilities", {
             id: availabilityId,
             communityId,
-            sessionId: session.id,
+            eventId: event.id,
+            sessionId,
             membershipId: ctx.membership.membershipId,
             answer: input.answer,
             needsReconfirmation: false,
@@ -104,12 +125,13 @@ export async function answerAvailability(
       // Une personne affectee qui devient indisponible : l'affectation est
       // conservee, marquee « A remplacer », et les admins sont prevenus.
       if (input.answer === "indisponible") {
-        await flagAssignmentsToReplace(
-          tx,
+        await flagAssignmentsToReplace(tx, {
           communityId,
-          ctx.membership.membershipId,
-          sessions.map((s) => s.id),
-        );
+          eventId: event.id,
+          membershipId: ctx.membership.membershipId,
+          sessionIds: targets,
+          sessionCount: sessions.length,
+        });
       }
 
       return ok({ saved });
@@ -153,13 +175,39 @@ async function upsertReason(
   });
 }
 
+/**
+ * Marque « a remplacer » les affectations devenues sans titulaire.
+ *
+ * Une equipe rattachee a toute la duree de l'evenement n'est concernee que
+ * si la personne n'est plus disponible sur aucune occurrence : une
+ * indisponibilite sur un seul sous-evenement ne la retire pas du reste.
+ */
 async function flagAssignmentsToReplace(
   tx: Tx,
-  communityId: Id,
-  membershipId: Id,
-  sessionIds: readonly Id[],
+  input: {
+    communityId: Id;
+    eventId: Id;
+    membershipId: Id;
+    sessionIds: readonly (Id | null)[];
+    sessionCount: number;
+  },
 ): Promise<number> {
-  const plans = await tx.select("event_plans", { whereIn: { sessionId: [...sessionIds] } });
+  const { communityId, eventId, membershipId } = input;
+  const answers = (
+    await tx.select("availabilities", { where: { eventId, membershipId } })
+  ).filter((a) => a.answer === "indisponible");
+  const unavailableEverywhere =
+    input.sessionCount === 0
+      ? input.sessionIds.includes(null)
+      : answers.filter((a) => a.sessionId !== null).length >= input.sessionCount;
+
+  const plans = (
+    await tx.select("event_plans", { where: { eventId } })
+  ).filter(
+    (p) =>
+      input.sessionIds.includes(p.sessionId) ||
+      (p.sessionId === null && unavailableEverywhere),
+  );
   if (plans.length === 0) return 0;
   const assignments = (
     await tx.select("assignments", { where: { membershipId } })
@@ -181,7 +229,6 @@ async function flagAssignmentsToReplace(
   const profile = membership
     ? await tx.selectOne("profiles", { where: { id: membership.userId } })
     : null;
-  const eventId = plans[0]!.eventId;
   const event = await tx.selectOne("events", { where: { id: eventId } });
 
   await enqueueNotifications(tx, {
@@ -270,23 +317,33 @@ export async function answerRehearsalAvailability(
   });
 }
 
+/** Cle d'une occurrence dans la grille : un sous-evenement, ou l'evenement. */
+export const COLONNE_EVENEMENT = "evenement";
+
 export interface AvailabilityGridRow {
   membershipId: Id;
   name: string;
   initials: string;
   skills: string[];
-  answers: Record<Id, { state: string; reason: string | null }>;
+  /** Cle : identifiant de sous-evenement, ou `COLONNE_EVENEMENT`. */
+  answers: Record<string, { state: string; reason: string | null }>;
 }
 
 /**
- * Tableau des reponses pour un evenement. Le motif n'est renvoye que si le
- * lecteur a le droit de le lire : la verification est refaite ici, cote
- * serveur, pas seulement a l'affichage.
+ * Tableau des reponses pour un evenement. Une colonne par occurrence : les
+ * sous-evenements, ou l'evenement seul quand il n'en a pas. Le motif n'est
+ * renvoye que si le lecteur a le droit de le lire : la verification est
+ * refaite ici, cote serveur, pas seulement a l'affichage.
  */
 export async function availabilityGrid(
   communityId: Id,
   eventId: Id,
-): Promise<Result<{ sessionIds: Id[]; rows: AvailabilityGridRow[] }>> {
+): Promise<
+  Result<{
+    columns: { key: string; label: string }[];
+    rows: AvailabilityGridRow[];
+  }>
+> {
   const ctx = await requireActiveMembership(communityId);
   const adapter = getDataAdapter();
 
@@ -300,14 +357,15 @@ export async function availabilityGrid(
     const sessions = (await tx.select("event_sessions", { where: { eventId } })).sort(
       (a, b) => a.ordinal - b.ordinal,
     );
+    const occurrences = occurrencesOf(event, sessions);
     const memberships = await tx.select("community_memberships", {
       where: { communityId, status: "active" },
     });
     const profiles = await tx.select("profiles", {
       whereIn: { id: memberships.map((m) => m.userId) },
     });
-    const availabilities = await tx.select("session_availabilities", {
-      whereIn: { sessionId: sessions.map((s) => s.id) },
+    const availabilities = await tx.select("availabilities", {
+      where: { eventId },
     });
     const reasons = await tx.select("availability_reasons", {
       whereIn: { availabilityId: availabilities.map((a) => a.id) },
@@ -321,9 +379,9 @@ export async function availabilityGrid(
     const rows = memberships.map((m): AvailabilityGridRow => {
       const profile = profileById.get(m.userId);
       const answers: AvailabilityGridRow["answers"] = {};
-      for (const session of sessions) {
+      for (const occurrence of occurrences) {
         const a = availabilities.find(
-          (x) => x.sessionId === session.id && x.membershipId === m.id,
+          (x) => x.sessionId === occurrence.sessionId && x.membershipId === m.id,
         );
         const reasonRow = a
           ? reasons.find((r) => r.availabilityId === a.id)
@@ -331,7 +389,7 @@ export async function availabilityGrid(
         const mayRead =
           reasonRow !== undefined &&
           canReadReason(ctx.viewer, ctx.membership, reasonRow.authorUserId);
-        answers[session.id] = {
+        answers[occurrence.sessionId ?? COLONNE_EVENEMENT] = {
           state: a
             ? a.needsReconfirmation
               ? "a_reconfirmer"
@@ -354,6 +412,12 @@ export async function availabilityGrid(
       };
     });
 
-    return ok({ sessionIds: sessions.map((s) => s.id), rows });
+    return ok({
+      columns: occurrences.map((o) => ({
+        key: o.sessionId ?? COLONNE_EVENEMENT,
+        label: o.label,
+      })),
+      rows,
+    });
   });
 }

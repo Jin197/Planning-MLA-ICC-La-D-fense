@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 
 const ONGLETS = [
   { id: "apercu", label: "Vue d'ensemble" },
-  { id: "creneaux", label: "Creneaux et equipes" },
+  { id: "equipes", label: "Equipes et postes" },
   { id: "repetitions", label: "Repetitions" },
   { id: "chants", label: "Chants" },
   { id: "dress-code", label: "Dress-code" },

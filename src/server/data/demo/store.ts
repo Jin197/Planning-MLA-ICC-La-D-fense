@@ -219,11 +219,20 @@ function assertConstraints(
       );
       break;
 
-    case "session_availabilities":
+    // Une reponse par membre et par occurrence : par sous-evenement quand
+    // l'evenement en a, sinon une seule pour l'evenement.
+    case "availabilities":
       unique(
-        "availability_unique",
-        "Une reponse existe deja pour ce membre et ce creneau.",
+        "availability_unique_par_sous_evenement",
+        "Une reponse existe deja pour ce membre et ce sous-evenement.",
         ["sessionId", "membershipId"],
+        (r) => r.sessionId !== null,
+      );
+      unique(
+        "availability_unique_par_evenement",
+        "Une reponse existe deja pour ce membre sur cet evenement.",
+        ["eventId", "membershipId"],
+        (r) => r.sessionId === null,
       );
       break;
 
@@ -235,11 +244,36 @@ function assertConstraints(
       );
       break;
 
+    // Un rattachement par equipe et par sous-evenement, et au plus un
+    // rattachement « tout l'evenement » par equipe.
     case "event_plans":
       unique(
-        "plan_unique_per_team_session",
-        "Cette equipe a deja un plan sur ce creneau.",
+        "plan_unique_par_equipe_et_sous_evenement",
+        "Cette equipe est deja rattachee a ce sous-evenement.",
         ["sessionId", "teamId"],
+        (r) => r.sessionId !== null,
+      );
+      unique(
+        "plan_unique_par_equipe_sur_evenement",
+        "Cette equipe est deja rattachee a tout l'evenement.",
+        ["teamId"],
+        (r) => r.sessionId === null,
+      );
+      break;
+
+    case "event_teams":
+      unique(
+        "event_team_name_unique",
+        "Une equipe porte deja ce nom dans cet evenement.",
+        ["eventId", "name"],
+      );
+      break;
+
+    case "event_team_members":
+      unique(
+        "event_team_member_unique",
+        "Cette personne est deja dans cette equipe.",
+        ["teamId", "membershipId"],
       );
       break;
 
@@ -252,6 +286,19 @@ function assertConstraints(
       );
       break;
 
+    case "events": {
+      if (
+        new Date(String(row.endsAt)).getTime() <=
+        new Date(String(row.startsAt)).getTime()
+      ) {
+        throw new ConstraintError(
+          "event_end_after_start",
+          "La fin de l'evenement doit suivre son debut.",
+        );
+      }
+      break;
+    }
+
     case "event_sessions": {
       if (
         new Date(String(row.endsAt)).getTime() <=
@@ -259,7 +306,7 @@ function assertConstraints(
       ) {
         throw new ConstraintError(
           "session_end_after_start",
-          "La fin d'un creneau doit suivre son debut.",
+          "La fin d'un sous-evenement doit suivre son debut.",
         );
       }
       break;
@@ -328,14 +375,6 @@ function assertConstraints(
       );
       break;
 
-    case "team_memberships":
-      unique(
-        "team_membership_unique",
-        "Cette personne est deja dans cette equipe.",
-        ["teamId", "membershipId"],
-      );
-      break;
-
     default:
       break;
   }
@@ -351,10 +390,15 @@ const PARENT_REFS: Partial<
   Record<TableName, { column: string; parent: TableName }[]>
 > = {
   event_sessions: [{ column: "eventId", parent: "events" }],
+  event_teams: [{ column: "eventId", parent: "events" }],
+  event_team_members: [
+    { column: "teamId", parent: "event_teams" },
+    { column: "membershipId", parent: "community_memberships" },
+  ],
   event_plans: [
     { column: "eventId", parent: "events" },
     { column: "sessionId", parent: "event_sessions" },
-    { column: "teamId", parent: "teams" },
+    { column: "teamId", parent: "event_teams" },
   ],
   event_role_slots: [{ column: "planId", parent: "event_plans" }],
   assignments: [
@@ -362,17 +406,16 @@ const PARENT_REFS: Partial<
     { column: "slotId", parent: "event_role_slots" },
     { column: "membershipId", parent: "community_memberships" },
   ],
-  session_availabilities: [
+  availabilities: [
+    { column: "eventId", parent: "events" },
     { column: "sessionId", parent: "event_sessions" },
     { column: "membershipId", parent: "community_memberships" },
   ],
-  availability_reasons: [
-    { column: "availabilityId", parent: "session_availabilities" },
-  ],
+  availability_reasons: [{ column: "availabilityId", parent: "availabilities" }],
   rehearsals: [{ column: "eventId", parent: "events" }],
   rehearsal_teams: [
     { column: "rehearsalId", parent: "rehearsals" },
-    { column: "teamId", parent: "teams" },
+    { column: "teamId", parent: "event_teams" },
   ],
   rehearsal_availabilities: [
     { column: "rehearsalId", parent: "rehearsals" },
@@ -388,10 +431,6 @@ const PARENT_REFS: Partial<
   membership_skills: [
     { column: "membershipId", parent: "community_memberships" },
     { column: "skillId", parent: "skills" },
-  ],
-  team_memberships: [
-    { column: "teamId", parent: "teams" },
-    { column: "membershipId", parent: "community_memberships" },
   ],
   template_fields: [{ column: "templateId", parent: "planning_templates" }],
 };

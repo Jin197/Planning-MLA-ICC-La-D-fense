@@ -70,7 +70,7 @@ export function VueAgenda({ planning }: { planning: VuePlanning }) {
                     <ul className="space-y-3">
                       {evenement.creneaux.map((creneau) => (
                         <li
-                          key={creneau.id}
+                          key={creneau.cle}
                           className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-3">

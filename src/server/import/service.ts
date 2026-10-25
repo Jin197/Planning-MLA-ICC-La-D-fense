@@ -442,7 +442,8 @@ export async function reglerOptionsImport(
 export interface RapportImport {
   evenementsCrees: number;
   evenementsIgnores: { titre: string; raison: string }[];
-  creneauxCrees: number;
+  /** Equipes creees, une par evenement importe. */
+  equipesCreees: number;
   repetitionsCreees: number;
   affectationsCreees: number;
   disponibilitesCreees: number;
@@ -485,7 +486,6 @@ export async function importerDefinitivement(
         ]),
     );
 
-    const equipes = await tx.select("teams", { where: { communityId } });
     const template = await tx.selectOne("planning_templates", { where: { communityId } });
     const champs = template
       ? await tx.select("template_fields", { where: { templateId: template.id } })
@@ -495,7 +495,7 @@ export async function importerDefinitivement(
     const rapport: RapportImport = {
       evenementsCrees: 0,
       evenementsIgnores: [],
-      creneauxCrees: 0,
+      equipesCreees: 0,
       repetitionsCreees: 0,
       affectationsCreees: 0,
       disponibilitesCreees: 0,
@@ -532,8 +532,11 @@ export async function importerDefinitivement(
       });
     }
 
+    // Le classeur ne decoupe pas une journee en sous-evenements : chaque
+    // date importee devient un evenement sans sous-evenement, dont l'horaire
+    // reste a definir.
     const eventParDate = new Map<string, Id>();
-    const sessionParDate = new Map<string, Id>();
+    const planParDate = new Map<string, Id>();
 
     for (const journee of [...journees.values()].sort((a, b) =>
       a.date < b.date ? -1 : 1,
@@ -546,10 +549,10 @@ export async function importerDefinitivement(
       const dejaPresent = evenementsExistants.find((e) => e.title === titre);
       if (dejaPresent) {
         eventParDate.set(journee.date, dejaPresent.id);
-        const creneauExistant = (
-          await tx.select("event_sessions", { where: { eventId: dejaPresent.id } })
+        const planExistant = (
+          await tx.select("event_plans", { where: { eventId: dejaPresent.id } })
         )[0];
-        if (creneauExistant) sessionParDate.set(journee.date, creneauExistant.id);
+        if (planExistant) planParDate.set(journee.date, planExistant.id);
         rapport.evenementsIgnores.push({
           titre,
           raison: "Deja importe : conserve tel quel, aucun doublon cree.",
@@ -568,6 +571,13 @@ export async function importerDefinitivement(
         // Un import arrive en brouillon : rien n'est publie automatiquement.
         state: "brouillon",
         timezone: tz,
+        // Les horaires exacts manquent dans le classeur : l'evenement est
+        // marque provisoire, ce qui bloque la publication jusqu'a definition.
+        startsAt: localToUtc({ date: journee.date, time: "09:00" }, tz),
+        endsAt: localToUtc({ date: journee.date, time: "11:00" }, tz),
+        locationName: "",
+        locationAddress: "",
+        scheduleProvisional: true,
         version: 1,
         publishedVersion: 0,
         responseDeadline: null,
@@ -582,41 +592,34 @@ export async function importerDefinitivement(
       rapport.evenementsCrees += 1;
       eventParDate.set(journee.date, eventId);
 
-      // Les horaires exacts manquent dans le classeur : le creneau est
-      // marque provisoire et bloque la publication jusqu'a definition.
-      const sessionId = newId();
-      await tx.insert("event_sessions", {
-        id: sessionId,
+      // Les equipes appartiennent a l'evenement : l'import en cree une par
+      // evenement, rattachee a toute sa duree, et y pose la feuille de
+      // postes. L'admin la renomme ou la decoupe ensuite.
+      const teamId = newId();
+      await tx.insert("event_teams", {
+        id: teamId,
         communityId,
         eventId,
-        label: "Creneau a definir",
-        ordinal: 1,
-        startsAt: localToUtc({ date: journee.date, time: "09:00" }, tz),
-        endsAt: localToUtc({ date: journee.date, time: "11:00" }, tz),
-        locationName: "",
-        locationAddress: "",
-        scheduleProvisional: true,
+        name: "Equipe importee",
+        order: 1,
       });
-      rapport.creneauxCrees += 1;
-      sessionParDate.set(journee.date, sessionId);
+      rapport.equipesCreees += 1;
 
-      const equipe = equipes[0];
-      if (equipe) {
-        const planId = newId();
-        await tx.insert("event_plans", {
-          id: planId,
-          communityId,
-          eventId,
-          sessionId,
-          teamId: equipe.id,
-          templateVersion: template?.version ?? 1,
-          createdAt: at,
-        });
-        await tx.insertMany(
-          "event_role_slots",
-          copyTemplateIntoPlan(champs, { communityId, planId }),
-        );
-      }
+      const planId = newId();
+      await tx.insert("event_plans", {
+        id: planId,
+        communityId,
+        eventId,
+        sessionId: null,
+        teamId,
+        templateVersion: template?.version ?? 1,
+        createdAt: at,
+      });
+      await tx.insertMany(
+        "event_role_slots",
+        copyTemplateIntoPlan(champs, { communityId, planId }),
+      );
+      planParDate.set(journee.date, planId);
     }
 
     /* --- Disponibilites des personnes liees --------------------------- */
@@ -624,12 +627,12 @@ export async function importerDefinitivement(
       if (ligne.kind !== "disponibilite" || ligne.skipped) continue;
       const personne = String(ligne.parsed.personne ?? "");
       const colonne = String(ligne.parsed.colonne ?? "");
-      const sessionId = sessionParDate.get(colonne);
+      const eventId = eventParDate.get(colonne);
       const membershipId =
         liees.get(personne.trim().toLowerCase()) ??
         liees.get(personne.split(" ").slice(-1)[0]?.toLowerCase() ?? "");
 
-      if (!sessionId) continue;
+      if (!eventId) continue;
       if (!membershipId) {
         rapport.rejets.push({
           source: `${ligne.sheet}!${ligne.cell}`,
@@ -639,20 +642,22 @@ export async function importerDefinitivement(
       }
 
       const token = ligne.parsed.token as ReturnType<typeof import("@/domain/availability").parseAvailabilityToken>;
+      // Une seule occurrence par journee importee : l'evenement lui-meme.
       const resolution = resolveAvailabilityForDay(
         token,
-        [{ id: sessionId, ordinal: 1, label: "Creneau a definir" }],
+        [{ id: eventId, ordinal: 1, label: "Horaire a definir" }],
         { inferMissingAsUnavailable: job.inferMissingAsUnavailable },
       );
       for (const reponse of resolution.resolved) {
-        const existante = await tx.selectOne("session_availabilities", {
-          where: { sessionId: reponse.sessionId, membershipId },
-        });
+        const existante = (
+          await tx.select("availabilities", { where: { eventId, membershipId } })
+        ).find((a) => a.sessionId === null);
         if (existante) continue;
-        await tx.insert("session_availabilities", {
+        await tx.insert("availabilities", {
           id: newId(),
           communityId,
-          sessionId: reponse.sessionId,
+          eventId,
+          sessionId: null,
           membershipId,
           answer: reponse.answer,
           // Une personne planifiee dans l'ancien fichier n'a rien confirme.
@@ -669,14 +674,14 @@ export async function importerDefinitivement(
       if (ligne.kind !== "affectation" || ligne.skipped) continue;
       if (ligne.parsed.nonApplicable === true) continue;
       const colonne = String(ligne.parsed.colonne ?? "");
-      const sessionId = sessionParDate.get(colonne);
-      if (!sessionId) continue;
+      const planId = planParDate.get(colonne);
+      if (!planId) continue;
       const poste = String(ligne.parsed.poste ?? "");
       const noms = Array.isArray(ligne.parsed.noms)
         ? (ligne.parsed.noms as string[])
         : [];
 
-      const plan = (await tx.select("event_plans", { where: { sessionId } }))[0];
+      const plan = await tx.selectOne("event_plans", { where: { id: planId } });
       if (!plan) continue;
       const slots = await tx.select("event_role_slots", { where: { planId: plan.id } });
       const slot = slots.find((s) =>
@@ -810,10 +815,9 @@ export async function importerDefinitivement(
       }
 
       const colonne = String(ligne.parsed.colonne ?? "");
-      const sessionId = sessionParDate.get(colonne);
       const eventId = eventParDate.get(colonne);
-      if (!sessionId || !eventId) continue;
-      const existants = await tx.select("setlist_items", { where: { sessionId } });
+      if (!eventId) continue;
+      const existants = await tx.select("setlist_items", { where: { eventId } });
       const sequence = String(ligne.parsed.sequence ?? "Chant");
       if (existants.some((i) => i.sequence === sequence && i.songId === songId)) {
         continue;
@@ -822,7 +826,7 @@ export async function importerDefinitivement(
         id: newId(),
         communityId,
         eventId,
-        sessionId,
+        sessionId: null,
         sequence,
         order: existants.length + 1,
         songId,

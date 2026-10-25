@@ -116,16 +116,16 @@ alter table community_memberships enable row level security;
 alter table join_requests enable row level security;
 alter table skills enable row level security;
 alter table membership_skills enable row level security;
-alter table teams enable row level security;
-alter table team_memberships enable row level security;
 alter table planning_templates enable row level security;
 alter table template_fields enable row level security;
 alter table events enable row level security;
 alter table event_sessions enable row level security;
+alter table event_teams enable row level security;
+alter table event_team_members enable row level security;
 alter table event_plans enable row level security;
 alter table event_role_slots enable row level security;
 alter table assignments enable row level security;
-alter table session_availabilities enable row level security;
+alter table availabilities enable row level security;
 alter table availability_reasons enable row level security;
 alter table rehearsals enable row level security;
 alter table rehearsal_teams enable row level security;
@@ -217,7 +217,7 @@ using (diapason_is_active_admin(community_id) and status = 'en_attente')
 with check (diapason_is_active_admin(community_id));
 
 -- ---------------------------------------------------------------------------
--- Competences, equipes, modeles
+-- Competences et modeles
 -- ---------------------------------------------------------------------------
 
 create policy skills_select on skills for select
@@ -229,18 +229,6 @@ with check (diapason_is_active_admin(community_id));
 create policy membership_skills_select on membership_skills for select
 using (diapason_is_active_member(community_id));
 create policy membership_skills_write on membership_skills for all
-using (diapason_is_active_admin(community_id))
-with check (diapason_is_active_admin(community_id));
-
-create policy teams_select on teams for select
-using (diapason_is_active_member(community_id));
-create policy teams_write on teams for all
-using (diapason_is_active_admin(community_id))
-with check (diapason_is_active_admin(community_id));
-
-create policy team_memberships_select on team_memberships for select
-using (diapason_is_active_member(community_id));
-create policy team_memberships_write on team_memberships for all
 using (diapason_is_active_admin(community_id))
 with check (diapason_is_active_admin(community_id));
 
@@ -277,6 +265,19 @@ with check (diapason_is_active_admin(community_id));
 create policy sessions_select on event_sessions for select
 using (diapason_can_see_event(event_id));
 create policy sessions_write on event_sessions for all
+using (diapason_is_active_admin(community_id))
+with check (diapason_is_active_admin(community_id));
+
+-- Les equipes appartiennent a l'evenement : elles se voient quand il se voit.
+create policy event_teams_select on event_teams for select
+using (diapason_can_see_event(event_id));
+create policy event_teams_write on event_teams for all
+using (diapason_is_active_admin(community_id))
+with check (diapason_is_active_admin(community_id));
+
+create policy event_team_members_select on event_team_members for select
+using (diapason_is_active_member(community_id));
+create policy event_team_members_write on event_team_members for all
 using (diapason_is_active_admin(community_id))
 with check (diapason_is_active_admin(community_id));
 
@@ -324,20 +325,20 @@ with check (
 
 -- Les reponses des autres membres sont visibles : elles servent a composer
 -- les equipes. Le motif, lui, ne l'est pas.
-create policy availabilities_select on session_availabilities for select
+create policy availabilities_select on availabilities for select
 using (diapason_is_active_member(community_id));
 
-create policy availabilities_insert_self on session_availabilities for insert
+create policy availabilities_insert_self on availabilities for insert
 with check (membership_id = diapason_my_membership(community_id));
 
-create policy availabilities_update_self on session_availabilities for update
+create policy availabilities_update_self on availabilities for update
 using (membership_id = diapason_my_membership(community_id))
 with check (membership_id = diapason_my_membership(community_id));
 
 -- Un admin peut marquer une reconfirmation apres un changement d'horaire,
 -- mais il ne reecrit pas la reponse elle-meme en silence : l'application ne
 -- modifie que `needs_reconfirmation`, et la trace est conservee.
-create policy availabilities_reconfirm_admin on session_availabilities for update
+create policy availabilities_reconfirm_admin on availabilities for update
 using (diapason_is_active_admin(community_id))
 with check (diapason_is_active_admin(community_id));
 
@@ -491,9 +492,10 @@ revoke all on all tables in schema public from anon, authenticated;
 
 grant select on
   profiles, communities, community_memberships, join_requests, skills,
-  membership_skills, teams, team_memberships, planning_templates,
-  template_fields, events, event_sessions, event_plans, event_role_slots,
-  assignments, session_availabilities, availability_reasons, rehearsals,
+  membership_skills, planning_templates,
+  template_fields, events, event_sessions, event_teams, event_team_members,
+  event_plans, event_role_slots,
+  assignments, availabilities, availability_reasons, rehearsals,
   rehearsal_teams, rehearsal_availabilities, rehearsal_availability_reasons,
   songs, setlist_items, dress_codes, event_assets, event_messages,
   message_read_cursors, notifications, notification_preferences, audit_logs,
@@ -501,9 +503,10 @@ grant select on
 to authenticated;
 
 grant insert, update, delete on
-  join_requests, skills, membership_skills, teams, team_memberships,
-  planning_templates, template_fields, events, event_sessions, event_plans,
-  event_role_slots, assignments, session_availabilities, availability_reasons,
+  join_requests, skills, membership_skills,
+  planning_templates, template_fields, events, event_sessions, event_teams,
+  event_team_members, event_plans,
+  event_role_slots, assignments, availabilities, availability_reasons,
   rehearsals, rehearsal_teams, rehearsal_availabilities,
   rehearsal_availability_reasons, songs, setlist_items, dress_codes,
   event_assets, event_messages, message_read_cursors, import_jobs,

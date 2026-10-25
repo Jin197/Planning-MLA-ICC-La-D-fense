@@ -5,10 +5,8 @@ import { redirect } from "next/navigation";
 import {
   changeMemberRole,
   createSkill,
-  createTeam,
   revokeMember,
   setMemberSkills,
-  setTeamMembers,
 } from "@/server/services/communities";
 import { echec, liste, succes, texte, type FormState } from "@/lib/form";
 
@@ -76,30 +74,8 @@ export async function actionCreerCompetence(
   return succes("Competence ajoutee.");
 }
 
-export async function actionCreerEquipe(
-  _etat: FormState,
-  data: FormData,
-): Promise<FormState> {
-  const communityId = texte(data, "communityId");
-  const result = await createTeam(communityId, texte(data, "nom"));
-  if (!result.ok) return echec(result.message);
-  rafraichir(communityId);
-  revalidatePath(`/c/${communityId}/parametres`);
-  return succes("Equipe creee.");
-}
-
-export async function actionMembresEquipe(
-  _etat: FormState,
-  data: FormData,
-): Promise<FormState> {
-  const communityId = texte(data, "communityId");
-  const result = await setTeamMembers(
-    communityId,
-    texte(data, "teamId"),
-    liste(data, "membershipIds"),
-  );
-  if (!result.ok) return echec(result.message);
-  rafraichir(communityId);
-  revalidatePath(`/c/${communityId}/parametres`);
-  return succes(`${result.value.count} personne(s) dans cette equipe.`);
-}
+/*
+ * Les equipes ne se gerent plus ici : elles appartiennent a un evenement et
+ * se creent dans celui-ci. Voir
+ * `src/app/(app)/c/[communityId]/evenements/[eventId]/actions.ts`.
+ */

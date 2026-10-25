@@ -61,10 +61,12 @@ describe("disponibilites par creneau", () => {
     await signIn(world.member.id);
 
     const first = await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "disponible",
     });
     const second = await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[1]!],
       answer: "indisponible",
       reason: "Rendez-vous familial",
@@ -73,7 +75,7 @@ describe("disponibilites par creneau", () => {
     expect(second.ok).toBe(true);
 
     const rows = await tx((t) =>
-      t.select("session_availabilities", {
+      t.select("availabilities", {
         where: { membershipId: world.memberMembershipId },
       }),
     );
@@ -87,6 +89,7 @@ describe("disponibilites par creneau", () => {
     const world = await setup();
     await signIn(world.member.id);
     const result = await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: world.event.sessionIds,
       answer: "disponible",
     });
@@ -97,15 +100,17 @@ describe("disponibilites par creneau", () => {
     const world = await setup();
     await signIn(world.member.id);
     await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "disponible",
     });
     await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "indisponible",
     });
     const rows = await tx((t) =>
-      t.select("session_availabilities", {
+      t.select("availabilities", {
         where: {
           membershipId: world.memberMembershipId,
           sessionId: world.event.sessionIds[0]!,
@@ -121,6 +126,7 @@ describe("disponibilites par creneau", () => {
     const world = await setup();
     await signIn(world.member.id);
     await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "indisponible",
       reason: "Motif strictement personnel",
@@ -146,6 +152,7 @@ describe("disponibilites par creneau", () => {
     const world = await setup();
     await signIn(world.member.id);
     await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "indisponible",
       reason: "Mon motif a moi",
@@ -161,6 +168,7 @@ describe("disponibilites par creneau", () => {
     const world = await setup({ state: "brouillon" });
     await signIn(world.member.id);
     const result = await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "disponible",
     });
@@ -237,6 +245,7 @@ describe("affectations", () => {
     const world = await setup();
     await signIn(world.member.id);
     await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "indisponible",
     });
@@ -263,6 +272,7 @@ describe("affectations", () => {
     const world = await setup();
     await signIn(world.member.id);
     await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "indisponible",
       reason: "Indisponible ce matin",
@@ -275,7 +285,7 @@ describe("affectations", () => {
       exceptionReason: "Exception justifiee",
     });
     const rows = await tx((t) =>
-      t.select("session_availabilities", {
+      t.select("availabilities", {
         where: {
           membershipId: world.memberMembershipId,
           sessionId: world.event.sessionIds[0]!,
@@ -319,6 +329,7 @@ describe("affectations", () => {
     const world = await setup();
     await signIn(world.member.id);
     await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "disponible",
     });
@@ -334,6 +345,7 @@ describe("affectations", () => {
 
     await signIn(world.member.id);
     await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "indisponible",
       reason: "Empechement de derniere minute",
@@ -422,6 +434,7 @@ describe("affectations", () => {
 
     await signIn(world.member.id);
     await answerAvailability(world.communityId, {
+      eventId: world.event.eventId,
       sessionIds: [world.event.sessionIds[0]!],
       answer: "disponible",
     });
@@ -468,7 +481,7 @@ describe("cycle de vie et publication", () => {
     expect(asMember.ok).toBe(true);
     if (asMember.ok) {
       expect(asMember.value.canSeePlan).toBe(false);
-      expect(asMember.value.sessions[0]!.plans).toEqual([]);
+      expect(asMember.value.occurrences[0]!.plans).toEqual([]);
       expect(asMember.value.readiness).toBeNull();
     }
 
@@ -477,7 +490,7 @@ describe("cycle de vie et publication", () => {
     expect(asAdmin.ok).toBe(true);
     if (asAdmin.ok) {
       expect(asAdmin.value.canSeePlan).toBe(true);
-      expect(asAdmin.value.sessions[0]!.plans.length).toBeGreaterThan(0);
+      expect(asAdmin.value.occurrences[0]!.plans.length).toBeGreaterThan(0);
     }
   });
 

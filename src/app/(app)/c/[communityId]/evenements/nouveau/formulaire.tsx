@@ -22,6 +22,11 @@ interface LigneCreneau {
   heureFin: string;
 }
 
+interface LigneEquipe {
+  cle: number;
+  nom: string;
+}
+
 interface LigneRepetition {
   cle: number;
   label: string;
@@ -45,23 +50,26 @@ const MODELE_DIMANCHE: Omit<LigneCreneau, "cle">[] = [
   { label: "Culte 4", dateDebut: "", heureDebut: "17:00", dateFin: "", heureFin: "18:45" },
 ];
 
+/**
+ * Creation d'un evenement.
+ *
+ * L'admin nomme l'evenement et lui donne son horaire. Les sous-evenements
+ * sont facultatifs : sans aucun, l'evenement reste d'un seul bloc et c'est
+ * sur lui que les membres repondent. Les equipes, elles, sont creees ici et
+ * n'existent que pour cet evenement ; chacune est rattachee aux
+ * sous-evenements coches, ou a toute la duree de l'evenement.
+ */
 export function FormulaireEvenement({
   communityId,
-  equipes,
+  membres,
 }: {
   communityId: string;
-  equipes: { id: string; name: string }[];
+  membres: { membershipId: string; name: string }[];
 }) {
   const [etat, action] = useActionState(actionCreerEvenement, ETAT_INITIAL);
-  const [creneaux, setCreneaux] = useState<LigneCreneau[]>([
-    {
-      cle: prochaineCle(),
-      label: "Culte 1",
-      dateDebut: "",
-      heureDebut: "09:00",
-      dateFin: "",
-      heureFin: "10:45",
-    },
+  const [creneaux, setCreneaux] = useState<LigneCreneau[]>([]);
+  const [equipes, setEquipes] = useState<LigneEquipe[]>([
+    { cle: prochaineCle(), nom: "Equipe 1" },
   ]);
   const [repetitions, setRepetitions] = useState<LigneRepetition[]>([]);
 
@@ -70,22 +78,23 @@ export function FormulaireEvenement({
       lignes.map((l) => (l.cle === cle ? { ...l, ...patch } : l)),
     );
 
+  const majEquipe = (cle: number, patch: Partial<LigneEquipe>) =>
+    setEquipes((lignes) =>
+      lignes.map((l) => (l.cle === cle ? { ...l, ...patch } : l)),
+    );
+
   const majRepetition = (cle: number, patch: Partial<LigneRepetition>) =>
     setRepetitions((lignes) =>
       lignes.map((l) => (l.cle === cle ? { ...l, ...patch } : l)),
     );
 
-  const appliquerModele = () => {
-    const dateReference = creneaux[0]?.dateDebut ?? "";
+  const appliquerModele = () =>
     setCreneaux(
       MODELE_DIMANCHE.map((modele) => ({
         ...modele,
         cle: prochaineCle(),
-        dateDebut: dateReference,
-        dateFin: dateReference,
       })),
     );
-  };
 
   return (
     <form action={action} className="space-y-8" noValidate>
@@ -98,12 +107,13 @@ export function FormulaireEvenement({
       ) : null}
 
       <section className="space-y-4">
-        <h2 className="text-base font-semibold">1. Informations generales</h2>
+        <h2 className="text-base font-semibold">1. L&apos;evenement</h2>
         <Champ
           label="Nom de l'evenement"
           htmlFor="titre"
           requis
           erreur={etat.champs?.titre}
+          aide="Culte du dimanche, anniversaire, convention, soiree de louange..."
         >
           <Input
             id="titre"
@@ -122,17 +132,87 @@ export function FormulaireEvenement({
             placeholder="Informations utiles aux equipes."
           />
         </Champ>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Champ label="Date" htmlFor="dateDebut" requis>
+            <Input
+              id="dateDebut"
+              name="dateDebut"
+              type="date"
+              required
+              defaultValue={etat.valeurs?.dateDebut ?? ""}
+            />
+          </Champ>
+          <Champ label="Heure de debut" htmlFor="heureDebut" requis>
+            <Input
+              id="heureDebut"
+              name="heureDebut"
+              type="time"
+              required
+              defaultValue={etat.valeurs?.heureDebut ?? ""}
+            />
+          </Champ>
+          <Champ
+            label="Date de fin"
+            htmlFor="dateFin"
+            aide="A renseigner seulement s'il se termine le lendemain."
+          >
+            <Input
+              id="dateFin"
+              name="dateFin"
+              type="date"
+              defaultValue={etat.valeurs?.dateFin ?? ""}
+            />
+          </Champ>
+          <Champ label="Heure de fin" htmlFor="heureFin" requis>
+            <Input
+              id="heureFin"
+              name="heureFin"
+              type="time"
+              required
+              defaultValue={etat.valeurs?.heureFin ?? ""}
+            />
+          </Champ>
+          <Champ label="Lieu" htmlFor="lieu">
+            <Input
+              id="lieu"
+              name="lieu"
+              placeholder="ICC La Defense"
+              defaultValue={etat.valeurs?.lieu ?? ""}
+            />
+          </Champ>
+          <Champ label="Adresse" htmlFor="adresse">
+            <Input
+              id="adresse"
+              name="adresse"
+              defaultValue={etat.valeurs?.adresse ?? ""}
+            />
+          </Champ>
+        </div>
       </section>
 
       <Separateur />
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold">2. Creneaux dates</h2>
+          <h2 className="text-base font-semibold">
+            2. Sous-evenements (facultatif)
+          </h2>
           <Button variante="secondaire" taille="compact" onClick={appliquerModele}>
             Modele : 4 cultes du dimanche
           </Button>
         </div>
+        <p className="text-sm text-nuit-doux">
+          Decoupez l&apos;evenement si besoin : Culte 1, Culte 2, atelier... Sans
+          sous-evenement, l&apos;evenement reste d&apos;un seul bloc et les
+          membres repondent sur lui.
+        </p>
+
+        {creneaux.length === 0 ? (
+          <p className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 px-3 py-2 text-sm text-nuit-doux">
+            Aucun sous-evenement : l&apos;evenement sera d&apos;un seul bloc.
+          </p>
+        ) : null}
 
         <ul className="space-y-4">
           {creneaux.map((creneau, index) => (
@@ -141,22 +221,20 @@ export function FormulaireEvenement({
               className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">Creneau {index + 1}</p>
-                {creneaux.length > 1 ? (
-                  <Button
-                    variante="discret"
-                    taille="compact"
-                    onClick={() =>
-                      setCreneaux((lignes) =>
-                        lignes.filter((l) => l.cle !== creneau.cle),
-                      )
-                    }
-                    aria-label={`Retirer le creneau ${index + 1}`}
-                  >
-                    <Trash2 aria-hidden="true" className="size-4" />
-                    Retirer
-                  </Button>
-                ) : null}
+                <p className="text-sm font-medium">Sous-evenement {index + 1}</p>
+                <Button
+                  variante="discret"
+                  taille="compact"
+                  onClick={() =>
+                    setCreneaux((lignes) =>
+                      lignes.filter((l) => l.cle !== creneau.cle),
+                    )
+                  }
+                  aria-label={`Retirer le sous-evenement ${index + 1}`}
+                >
+                  <Trash2 aria-hidden="true" className="size-4" />
+                  Retirer
+                </Button>
               </div>
 
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -202,7 +280,7 @@ export function FormulaireEvenement({
                   label="Date de fin"
                   htmlFor={`df-${creneau.cle}`}
                   requis
-                  aide="A changer si le creneau se termine le lendemain."
+                  aide="A changer s'il se termine le lendemain."
                 >
                   <Input
                     id={`df-${creneau.cle}`}
@@ -255,33 +333,125 @@ export function FormulaireEvenement({
           }
         >
           <Plus aria-hidden="true" className="size-4" />
-          Ajouter un creneau
+          Ajouter un sous-evenement
         </Button>
       </section>
 
       <Separateur />
 
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">3. Equipes a preparer</h2>
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold">3. Equipes de cet evenement</h2>
         <p className="text-sm text-nuit-doux">
-          Un plan est cree pour chaque equipe cochee, sur chaque creneau.
+          Autant d&apos;equipes que vous voulez. Elles n&apos;existent que pour
+          cet evenement : leur nom et leur effectif ne se reportent pas sur le
+          suivant. Chaque equipe recoit la feuille de postes du modele sur
+          chacun de ses rattachements.
         </p>
-        <ul className="grid gap-2 sm:grid-cols-2">
+
+        <ul className="space-y-4">
           {equipes.map((equipe, index) => (
-            <li key={equipe.id}>
-              <label className="flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-ivoire-fonce/60 px-3 text-sm">
-                <input
-                  type="checkbox"
-                  name="teamIds"
-                  value={equipe.id}
-                  defaultChecked={index === 0}
-                  className="size-5"
-                />
-                {equipe.name}
-              </label>
+            <li
+              key={equipe.cle}
+              className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">Equipe {index + 1}</p>
+                {equipes.length > 1 ? (
+                  <Button
+                    variante="discret"
+                    taille="compact"
+                    onClick={() =>
+                      setEquipes((lignes) =>
+                        lignes.filter((l) => l.cle !== equipe.cle),
+                      )
+                    }
+                    aria-label={`Retirer l'equipe ${index + 1}`}
+                  >
+                    <Trash2 aria-hidden="true" className="size-4" />
+                    Retirer
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="mt-3 space-y-4">
+                <Champ label="Nom de l'equipe" htmlFor={`eq-${equipe.cle}`} requis>
+                  <Input
+                    id={`eq-${equipe.cle}`}
+                    name="equipeNom"
+                    value={equipe.nom}
+                    onChange={(e) => majEquipe(equipe.cle, { nom: e.target.value })}
+                    placeholder="Equipe 1, Groupe louange du soir, Pole technique..."
+                    required
+                    maxLength={80}
+                  />
+                </Champ>
+
+                {membres.length > 0 ? (
+                  <fieldset>
+                    <legend className="text-sm font-medium">Effectif</legend>
+                    <p className="mt-1 text-xs text-nuit-doux">
+                      Facultatif. Les personnes de l&apos;equipe apparaissent en
+                      tete du choix des candidats pour chaque poste.
+                    </p>
+                    <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {membres.map((membre) => (
+                        <li key={membre.membershipId}>
+                          <label className="flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-surface px-3 text-sm">
+                            <input
+                              type="checkbox"
+                              name={`equipeMembres-${index}`}
+                              value={membre.membershipId}
+                              className="size-5"
+                            />
+                            {membre.name}
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </fieldset>
+                ) : null}
+
+                {creneaux.length > 0 ? (
+                  <fieldset>
+                    <legend className="text-sm font-medium">Rattachement</legend>
+                    <p className="mt-1 text-xs text-nuit-doux">
+                      Cochez les sous-evenements ou cette equipe sert. Sans
+                      selection, elle couvre toute la duree de l&apos;evenement.
+                    </p>
+                    <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {creneaux.map((creneau, rang) => (
+                        <li key={creneau.cle}>
+                          <label className="flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-surface px-3 text-sm">
+                            <input
+                              type="checkbox"
+                              name={`equipeSousEvenements-${index}`}
+                              value={rang + 1}
+                              className="size-5"
+                            />
+                            {creneau.label || `Sous-evenement ${rang + 1}`}
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </fieldset>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
+
+        <Button
+          variante="secondaire"
+          onClick={() =>
+            setEquipes((lignes) => [
+              ...lignes,
+              { cle: prochaineCle(), nom: `Equipe ${lignes.length + 1}` },
+            ])
+          }
+        >
+          <Plus aria-hidden="true" className="size-4" />
+          Ajouter une equipe
+        </Button>
       </section>
 
       <Separateur />
@@ -395,6 +565,29 @@ export function FormulaireEvenement({
                   />
                 </Champ>
               </div>
+
+              <fieldset className="mt-3">
+                <legend className="text-sm font-medium">Equipes concernees</legend>
+                <p className="mt-1 text-xs text-nuit-doux">
+                  Sans selection, toutes les equipes de l&apos;evenement sont
+                  concernees.
+                </p>
+                <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {equipes.map((equipe, rang) => (
+                    <li key={equipe.cle}>
+                      <label className="flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-surface px-3 text-sm">
+                        <input
+                          type="checkbox"
+                          name={`repetitionEquipes-${index}`}
+                          value={rang + 1}
+                          className="size-5"
+                        />
+                        {equipe.nom || `Equipe ${rang + 1}`}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </fieldset>
             </li>
           ))}
         </ul>
@@ -441,8 +634,8 @@ export function FormulaireEvenement({
           />
           <span>
             Ouvrir tout de suite la collecte des disponibilites et prevenir les
-            membres actifs. Sinon l&apos;evenement reste en brouillon, visible des
-            admins seulement.
+            membres actifs par notification et par mail. Sinon l&apos;evenement
+            reste en brouillon, visible des admins seulement.
           </span>
         </label>
       </section>

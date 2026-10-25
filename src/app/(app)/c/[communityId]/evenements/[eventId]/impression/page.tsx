@@ -36,10 +36,8 @@ export default async function PageImpression({
         </p>
         <h1 className="mt-1 text-2xl font-semibold">{vue.event.title}</h1>
         <p className="mt-1 text-sm text-nuit-doux">
-          {vue.sessions[0]
-            ? formatDateLong(vue.sessions[0].session.startsAt, vue.event.timezone)
-            : "Sans date"}{" "}
-          - etat : {vue.event.state}
+          {formatDateLong(vue.event.startsAt, vue.event.timezone)} - etat :{" "}
+          {vue.event.state}
           {vue.event.publishedVersion > 0
             ? ` - version publiee ${vue.event.publishedVersion}`
             : ""}
@@ -55,24 +53,53 @@ export default async function PageImpression({
         </Alerte>
       ) : null}
 
-      {vue.sessions.map(({ session, plans, setlist }) => (
-        <section key={session.id} className="space-y-3">
+      {[
+        ...vue.occurrences.map((o) => ({
+          cle: o.sessionId ?? "evenement",
+          titre: o.sessionId === null ? "Programme" : o.label,
+          horaire: o.scheduleProvisional
+            ? "horaire a definir"
+            : formatRange(o.startsAt, o.endsAt, vue.event.timezone),
+          locationName: o.locationName,
+          locationAddress: o.locationAddress,
+          plans: o.plans,
+          setlist: o.setlist,
+        })),
+        // Les equipes couvrant toute la duree de l'evenement viennent apres
+        // les sous-evenements, sous leur propre intitule.
+        ...(vue.eventWidePlans.length > 0
+          ? [
+              {
+                cle: "toute-la-duree",
+                titre: "Sur toute la duree de l'evenement",
+                horaire: formatRange(
+                  vue.event.startsAt,
+                  vue.event.endsAt,
+                  vue.event.timezone,
+                ),
+                locationName: vue.event.locationName,
+                locationAddress: vue.event.locationAddress,
+                plans: vue.eventWidePlans,
+                setlist: [],
+              },
+            ]
+          : []),
+      ].map((bloc) => (
+        <section key={bloc.cle} className="space-y-3">
           <h2 className="text-lg font-semibold">
-            {session.label}
+            {bloc.titre}
             <span className="ml-2 text-sm font-normal text-nuit-doux">
-              {session.scheduleProvisional
-                ? "horaire a definir"
-                : formatRange(session.startsAt, session.endsAt, vue.event.timezone)}
+              {bloc.horaire}
             </span>
           </h2>
-          {session.locationName ? (
+          {bloc.locationName ? (
             <p className="text-sm text-nuit-doux">
-              {session.locationName}
-              {session.locationAddress ? ` - ${session.locationAddress}` : ""}
+              {bloc.locationName}
+              {bloc.locationAddress ? ` - ${bloc.locationAddress}` : ""}
             </p>
           ) : null}
 
-          {plans.map((plan) => (
+          {bloc.plans.map((plan) => (
             <table key={plan.id} className="w-full border-collapse text-sm">
               <caption className="pb-1 text-left font-medium">
                 {plan.teamName}
@@ -119,11 +146,11 @@ export default async function PageImpression({
             </table>
           ))}
 
-          {setlist.length > 0 ? (
+          {bloc.setlist.length > 0 ? (
             <div>
               <h3 className="text-sm font-semibold">Chants</h3>
               <ol className="mt-1 list-inside list-decimal text-sm">
-                {setlist.map((item) => (
+                {bloc.setlist.map((item) => (
                   <li key={item.id}>
                     {item.sequence} : {item.freeTitle ?? "voir repertoire"}
                   </li>

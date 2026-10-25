@@ -44,15 +44,19 @@ beforeAll(async () => {
     )[0]!;
 
     const publie = (await t.select("events", { where: { communityId: mla.id } })).find(
-      (e) => e.state === "publie" && e.title.includes("18 octobre"),
+      // Les dates du jeu sont calculees a l'installation : on vise le
+      // dimanche publie par ce qu'il est, pas par sa date.
+      (e) => e.state === "publie" && e.title.startsWith("Cultes du dimanche"),
     )!;
     const culte1 = (
       await t.select("event_sessions", { where: { eventId: publie.id } })
     ).find((s) => s.label === "Culte 1")!;
 
-    const equipe1 = (await t.select("teams", { where: { communityId: mla.id } })).find(
-      (e) => e.name === "Equipe 1",
-    )!;
+    // Les equipes appartiennent a l'evenement : on cherche celle de cet
+    // evenement, pas une equipe de communaute.
+    const equipe1 = (
+      await t.select("event_teams", { where: { eventId: publie.id } })
+    ).find((e) => e.name === "Equipe 1")!;
     const plan = (
       await t.select("event_plans", {
         where: { sessionId: culte1.id, teamId: equipe1.id },
@@ -149,9 +153,9 @@ describe("scenario : le LEAD change entre le culte 1 et le culte 2", () => {
     expect(detail.ok).toBe(true);
     if (!detail.ok) return;
 
-    const leadsParCreneau = detail.value.sessions.map((vue) => ({
-      creneau: vue.session.label,
-      leads: vue.plans
+    const leadsParCreneau = detail.value.occurrences.map((occurrence) => ({
+      creneau: occurrence.label,
+      leads: occurrence.plans
         .flatMap((p) => p.slots.filter((s) => s.label === "LEAD"))
         .flatMap((s) => s.assignments.map((a) => a.name)),
     }));
@@ -175,12 +179,12 @@ describe("scenario : une disponibilite differente entre deux cultes du jour", ()
 
     const detail = await getEventDetail(reperes.mlaId, reperes.publieId);
     if (!detail.ok) return;
-    const [c1, c2] = detail.value.sessions;
+    const [c1, c2] = detail.value.occurrences;
 
-    expect(maelys?.answers[c1!.session.id]?.state).toBe("disponible");
-    expect(maelys?.answers[c2!.session.id]?.state).toBe("indisponible");
+    expect(maelys?.answers[c1!.sessionId!]?.state).toBe("disponible");
+    expect(maelys?.answers[c2!.sessionId!]?.state).toBe("indisponible");
     // L'admin lit le motif ; un membre ne le verrait pas.
-    expect(maelys?.answers[c2!.session.id]?.reason).toContain("familial");
+    expect(maelys?.answers[c2!.sessionId!]?.reason).toContain("familial");
   });
 });
 
@@ -189,7 +193,9 @@ describe("scenario : une repetition qui se termine apres minuit", () => {
     await signIn(reperes.noaId);
     const collecte = await tx(async (t) => {
       const events = await t.select("events", { where: { communityId: reperes.mlaId } });
-      return events.find((e) => e.title.includes("25 octobre") && e.state === "collecte")!;
+      return events.find(
+        (e) => e.state === "collecte" && e.title.startsWith("Cultes du dimanche"),
+      )!;
     });
 
     const detail = await getEventDetail(reperes.mlaId, collecte.id);
@@ -221,7 +227,7 @@ describe("scenario : corriger la description d'un evenement", () => {
     await signIn(reperes.noaId);
 
     const avant = await tx(async (t) => ({
-      dispos: await t.select("session_availabilities", {
+      dispos: await t.select("availabilities", {
         where: { communityId: reperes.mlaId },
       }),
       confirmees: (
@@ -238,14 +244,14 @@ describe("scenario : corriger la description d'un evenement", () => {
     expect(resultat.ok).toBe(true);
 
     const apres = await tx(async (t) => ({
-      dispos: await t.select("session_availabilities", {
+      dispos: await t.select("availabilities", {
         where: { communityId: reperes.mlaId },
       }),
       confirmees: (
         await t.select("assignments", { where: { communityId: reperes.mlaId } })
       ).filter((a) => a.state === "confirmee").length,
       aReconfirmer: (
-        await t.select("session_availabilities", {
+        await t.select("availabilities", {
           where: { communityId: reperes.mlaId, needsReconfirmation: true },
         })
       ).length,
@@ -311,7 +317,7 @@ describe("scenario : un creneau dont l'horaire reste a definir", () => {
     expect(detail.ok).toBe(true);
     if (!detail.ok) return;
 
-    expect(detail.value.sessions[0]?.session.scheduleProvisional).toBe(true);
+    expect(detail.value.occurrences[0]?.scheduleProvisional).toBe(true);
     const bloquants = (detail.value.readiness?.blockers ?? []).filter(
       (b) => b.severity === "bloquant",
     );

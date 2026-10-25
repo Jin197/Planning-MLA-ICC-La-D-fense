@@ -114,20 +114,11 @@ export interface MembershipSkill {
   skillId: Id;
 }
 
-export interface Team {
-  id: Id;
-  communityId: Id;
-  name: string;
-  order: number;
-  archivedAt: IsoInstant | null;
-}
-
-export interface TeamMembership {
-  id: Id;
-  communityId: Id;
-  teamId: Id;
-  membershipId: Id;
-}
+/*
+ * Les equipes ne vivent pas ici : elles appartiennent a un evenement et sont
+ * declarees plus bas, avec lui. Une communaute n'a donc pas de liste
+ * d'equipes durables, et rien ne se reporte d'un evenement au suivant.
+ */
 
 /* -------------------------------------------------------------------------- */
 /* Modeles de planning                                                         */
@@ -176,7 +167,7 @@ export interface TemplateField {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Evenements, creneaux, plans, postes, affectations                           */
+/* Evenements, sous-evenements, equipes, plans, postes, affectations           */
 /* -------------------------------------------------------------------------- */
 
 export const EVENT_STATES = [
@@ -188,6 +179,12 @@ export const EVENT_STATES = [
 ] as const;
 export type EventState = (typeof EVENT_STATES)[number];
 
+/**
+ * Evenement. L'admin le nomme librement — culte du dimanche, anniversaire,
+ * convention — et le decrit. Il porte toujours son propre horaire : c'est
+ * celui auquel les membres repondent quand l'evenement n'a aucun
+ * sous-evenement, et la fenetre d'ensemble quand il en a.
+ */
 export interface Event {
   id: Id;
   communityId: Id;
@@ -195,6 +192,15 @@ export interface Event {
   description: string;
   state: EventState;
   timezone: string;
+  startsAt: IsoInstant;
+  endsAt: IsoInstant;
+  locationName: string;
+  locationAddress: string;
+  /**
+   * Horaire encore a definir : l'import peut creer un evenement sans heure
+   * fiable. Bloque la publication jusqu'a confirmation.
+   */
+  scheduleProvisional: boolean;
   /** Incrementee a chaque modification : detecte les ecritures concurrentes. */
   version: number;
   /** Numero de version du planning publie, pour les notifications ciblees. */
@@ -209,6 +215,11 @@ export interface Event {
   updatedAt: IsoInstant;
 }
 
+/**
+ * Sous-evenement : facultatif. Un evenement peut n'en avoir aucun, ou en
+ * avoir autant que necessaire (« Culte 1 », « Culte 2 »...). Chacun a son
+ * propre horaire et son propre lieu.
+ */
 export interface EventSession {
   id: Id;
   communityId: Id;
@@ -222,17 +233,45 @@ export interface EventSession {
   locationName: string;
   locationAddress: string;
   /**
-   * Horaire encore a definir : l'import peut creer un creneau sans heure
-   * fiable. Bloque la publication jusqu'a confirmation.
+   * Horaire encore a definir : l'import peut creer un sous-evenement sans
+   * heure fiable. Bloque la publication jusqu'a confirmation.
    */
   scheduleProvisional: boolean;
 }
 
+/**
+ * Equipe creee dans un evenement, en nombre libre. Elle n'existe que pour
+ * lui : son effectif est saisi la et ne se reporte pas sur l'evenement
+ * suivant.
+ */
+export interface EventTeam {
+  id: Id;
+  communityId: Id;
+  eventId: Id;
+  name: string;
+  order: number;
+}
+
+export interface EventTeamMember {
+  id: Id;
+  communityId: Id;
+  teamId: Id;
+  membershipId: Id;
+}
+
+/**
+ * Rattachement d'une equipe, et feuille de postes correspondante.
+ *
+ * `sessionId` porte le choix de l'admin : un sous-evenement precis, ou
+ * `null` pour « toute la duree de l'evenement ». Une equipe presente sur
+ * deux sous-evenements a donc deux plans, ce qui permet d'y affecter des
+ * personnes differentes.
+ */
 export interface EventPlan {
   id: Id;
   communityId: Id;
   eventId: Id;
-  sessionId: Id;
+  sessionId: Id | null;
   teamId: Id;
   /** Version du modele copiee a la creation du plan. */
   templateVersion: number;
@@ -305,10 +344,16 @@ export type AvailabilityDisplayState =
   | "a_renseigner"
   | "a_reconfirmer";
 
-export interface SessionAvailability {
+/**
+ * Reponse de disponibilite. Elle porte sur un sous-evenement quand
+ * l'evenement en a, et sur l'evenement lui-meme sinon : `sessionId` vaut
+ * alors `null`. Jamais sur une journee entiere.
+ */
+export interface Availability {
   id: Id;
   communityId: Id;
-  sessionId: Id;
+  eventId: Id;
+  sessionId: Id | null;
   membershipId: Id;
   answer: AvailabilityAnswer;
   /** Les horaires ont change apres la reponse. */
@@ -398,7 +443,8 @@ export interface SetlistItem {
   id: Id;
   communityId: Id;
   eventId: Id;
-  sessionId: Id;
+  /** null = liste commune a l'evenement, sans sous-evenement. */
+  sessionId: Id | null;
   /** Ex. « Chant 1 », « Sainte Cene », « Offrandes ». */
   sequence: string;
   order: number;

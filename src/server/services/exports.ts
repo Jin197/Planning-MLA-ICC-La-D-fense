@@ -40,7 +40,9 @@ export async function exportAssignmentsCsv(communityId: Id): Promise<string> {
     const assignments = await tx.select("assignments", {
       whereIn: { planId: plans.map((p) => p.id) },
     });
-    const teams = await tx.select("teams", { where: { communityId } });
+    const teams = await tx.select("event_teams", {
+      whereIn: { eventId: visibles.map((e) => e.id) },
+    });
     const memberships = await tx.select("community_memberships", {
       where: { communityId },
     });
@@ -60,19 +62,25 @@ export async function exportAssignmentsCsv(communityId: Id): Promise<string> {
     for (const assignment of assignments) {
       if (assignment.state === "retiree") continue;
       const plan = planById.get(assignment.planId);
-      const session = plan ? sessionById.get(plan.sessionId) : undefined;
       const event = plan ? eventById.get(plan.eventId) : undefined;
-      if (!plan || !session || !event) continue;
+      if (!plan || !event) continue;
+      // Une equipe rattachee a tout l'evenement n'a pas de sous-evenement :
+      // la ligne porte alors l'horaire de l'evenement.
+      const session =
+        plan.sessionId === null ? null : sessionById.get(plan.sessionId);
+      if (plan.sessionId !== null && !session) continue;
+      const startsAt = session?.startsAt ?? event.startsAt;
+      const endsAt = session?.endsAt ?? event.endsAt;
       const membership = membershipById.get(assignment.membershipId);
       const profile = membership ? profileById.get(membership.userId) : undefined;
 
       sorties.push([
         event.title,
         event.state,
-        session.label,
-        formatDateLong(session.startsAt, tz),
-        formatTime(session.startsAt, tz),
-        formatTime(session.endsAt, tz),
+        session?.label ?? "",
+        formatDateLong(startsAt, tz),
+        formatTime(startsAt, tz),
+        formatTime(endsAt, tz),
         teamById.get(plan.teamId)?.name ?? "",
         slotById.get(assignment.slotId)?.label ?? "",
         profile ? `${profile.firstName} ${profile.lastName}` : "Membre retire",
@@ -90,7 +98,7 @@ export async function exportAssignmentsCsv(communityId: Id): Promise<string> {
   const entetes = [
     "Evenement",
     "Etat evenement",
-    "Creneau",
+    "Sous-evenement",
     "Date",
     "Debut",
     "Fin",
@@ -121,9 +129,9 @@ function instantIcs(iso: string): string {
 }
 
 /**
- * Calendrier personnel : uniquement les creneaux ou la personne est affectee,
- * et les repetitions de ses equipes. Aucun motif prive, aucune donnee d'un
- * autre membre.
+ * Calendrier personnel : uniquement les occurrences ou la personne est
+ * affectee, et les repetitions de ses equipes. Aucun motif prive, aucune
+ * donnee d'un autre membre.
  */
 export async function exportPersonalIcs(): Promise<string> {
   const session = await requireSession();
@@ -149,13 +157,15 @@ export async function exportPersonalIcs(): Promise<string> {
       whereIn: { id: assignments.map((a) => a.planId) },
     });
     const sessions = await tx.select("event_sessions", {
-      whereIn: { id: plans.map((p) => p.sessionId) },
+      whereIn: {
+        id: plans.map((p) => p.sessionId).filter((id): id is Id => id !== null),
+      },
     });
     const slots = await tx.select("event_role_slots", {
       whereIn: { id: assignments.map((a) => a.slotId) },
     });
     const events = await tx.select("events", {
-      whereIn: { id: [...new Set(sessions.map((s) => s.eventId))] },
+      whereIn: { id: [...new Set(plans.map((p) => p.eventId))] },
     });
 
     const eventById = new Map(events.map((e) => [e.id, e]));
@@ -175,21 +185,28 @@ export async function exportPersonalIcs(): Promise<string> {
 
     for (const assignment of assignments) {
       const plan = planById.get(assignment.planId);
-      const session_ = plan ? sessionById.get(plan.sessionId) : undefined;
       const event = plan ? eventById.get(plan.eventId) : undefined;
-      if (!plan || !session_ || !event) continue;
+      if (!plan || !event) continue;
+      const session_ =
+        plan.sessionId === null ? null : sessionById.get(plan.sessionId);
+      if (plan.sessionId !== null && !session_) continue;
       // Un planning non publie n'apparait pas dans le calendrier personnel.
       if (event.state !== "publie") continue;
 
+      const quand = session_ ?? event;
       sorties.push({
         uid: `${assignment.id}@diapason`,
-        debut: session_.startsAt,
-        fin: session_.endsAt,
+        debut: quand.startsAt,
+        fin: quand.endsAt,
         titre: `${slotById.get(assignment.slotId)?.label ?? "Service"} - ${event.title}`,
-        lieu: [session_.locationName, session_.locationAddress]
+        lieu: [quand.locationName, quand.locationAddress].filter(Boolean).join(", "),
+        description: [
+          communityById.get(event.communityId)?.name ?? "",
+          session_?.label,
+          `etat : ${assignment.state}`,
+        ]
           .filter(Boolean)
-          .join(", "),
-        description: `${communityById.get(event.communityId)?.name ?? ""} - ${session_.label} - etat : ${assignment.state}`,
+          .join(" - "),
       });
     }
 

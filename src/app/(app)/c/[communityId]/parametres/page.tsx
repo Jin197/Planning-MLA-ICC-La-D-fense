@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireCommunityAction } from "@/server/auth/context";
 import {
   getCommunity,
   getTemplate,
-  listMembers,
   listSkills,
-  listTeams,
 } from "@/server/services/communities";
 import {
   Alerte,
@@ -15,7 +14,6 @@ import {
   CardHeader,
 } from "@/components/ui/primitives";
 import { EditeurModele } from "./editeur-modele";
-import { GestionEquipes } from "./gestion-equipes";
 
 export const metadata: Metadata = { title: "Parametres de la communaute" };
 
@@ -38,11 +36,9 @@ export default async function PageParametres({
   const { communityId } = await params;
   await requireCommunityAction(communityId, "communaute.gerer_modele");
 
-  const [community, template, equipes, membres, competences] = await Promise.all([
+  const [community, template, competences] = await Promise.all([
     getCommunity(communityId),
     getTemplate(communityId),
-    listTeams(communityId),
-    listMembers(communityId),
     listSkills(communityId),
   ]);
 
@@ -57,7 +53,7 @@ export default async function PageParametres({
         <p className="text-sm text-nuit-doux">{community?.name}</p>
         <h1 className="mt-0.5 text-2xl font-semibold sm:text-3xl">Parametres</h1>
         <p className="mt-1 max-w-prose text-sm text-nuit-doux">
-          Modele de planning, equipes et competences. Fuseau de la communaute :{" "}
+          Modele de planning et competences. Fuseau de la communaute :{" "}
           {community?.timezone}.
         </p>
       </header>
@@ -117,18 +113,34 @@ export default async function PageParametres({
         </Card>
       ) : null}
 
-      <GestionEquipes
-        communityId={communityId}
-        equipes={equipes.map((e) => ({ id: e.id, name: e.name }))}
-        membres={membres
-          .filter((m) => m.status === "active")
-          .map((m) => ({
-            membershipId: m.membershipId,
-            nom: `${m.firstName} ${m.lastName}`,
-            equipes: m.teams,
-          }))}
-        competences={competences.map((c) => c.label)}
-      />
+      <Card>
+        <CardHeader
+          titre="Equipes"
+          sousTitre="Elles ne se gerent pas ici."
+        />
+        <CardBody>
+          <p className="max-w-prose text-sm text-nuit-doux">
+            Une equipe appartient a un evenement : elle se cree dans
+            l&apos;evenement concerne, avec son effectif et ses rattachements,
+            et disparait avec lui. Ouvrez un evenement puis son onglet
+            « Equipes et postes ». Les competences, elles, restent attachees aux
+            personnes et se reglent depuis la page{" "}
+            <Link href={`/c/${communityId}/membres`} className="underline">
+              Membres
+            </Link>
+            .
+          </p>
+          {competences.length > 0 ? (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {competences.map((competence) => (
+                <li key={competence.id}>
+                  <Badge ton="neutre">{competence.label}</Badge>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </CardBody>
+      </Card>
     </div>
   );
 }

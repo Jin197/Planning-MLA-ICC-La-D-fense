@@ -28,7 +28,16 @@ export function MesAffectations({
 }) {
   const [etat, action] = useActionState(actionEtatAffectation, ETAT_INITIAL);
 
-  const miennes = vue.sessions.flatMap(({ session, plans }) =>
+  // Les occurrences couvrent les sous-evenements, ou l'evenement seul ;
+  // s'y ajoutent les equipes rattachees a toute sa duree.
+  const sources = [
+    ...vue.occurrences.map((o) => ({ quand: o.label, plans: o.plans })),
+    ...(vue.eventWidePlans.length > 0
+      ? [{ quand: "Tout l'evenement", plans: vue.eventWidePlans }]
+      : []),
+  ];
+
+  const miennes = sources.flatMap(({ quand, plans }) =>
     plans.flatMap((plan) =>
       plan.slots.flatMap((slot) =>
         slot.assignments
@@ -39,7 +48,7 @@ export function MesAffectations({
             poste: slot.label,
             detail: a.detail,
             equipe: plan.teamName,
-            creneau: session.label,
+            creneau: quand,
           })),
       ),
     ),

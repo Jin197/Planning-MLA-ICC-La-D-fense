@@ -10,16 +10,20 @@ import { Alerte, Textarea } from "@/components/ui/primitives";
 import { BadgeDisponibilite } from "@/components/app/status-badges";
 
 interface CreneauChoix {
-  id: string;
+  /** null quand l'occurrence est l'evenement lui-meme. */
+  id: string | null;
   label: string;
   heure: string;
   etat: AvailabilityDisplayState;
 }
 
 /**
- * Reponse rapide : selection multiple de creneaux, puis une reponse unique.
- * Une reponse est enregistree pour chaque creneau coche, jamais une reponse
- * de journee.
+ * Reponse rapide : selection multiple de sous-evenements, puis une reponse
+ * unique. Une reponse est enregistree par sous-evenement coche, jamais une
+ * reponse de journee.
+ *
+ * Quand l'evenement n'a pas de sous-evenement, il n'y a rien a cocher : la
+ * reponse porte sur l'evenement, et les deux boutons suffisent.
  */
 export function RepondreDisponibilite({
   communityId,
@@ -35,8 +39,11 @@ export function RepondreDisponibilite({
   timezone: string;
 }) {
   const [etat, action] = useActionState(actionRepondreDisponibilite, ETAT_INITIAL);
+  const surEvenement = creneaux.length === 1 && creneaux[0]!.id === null;
   const [selection, setSelection] = useState<string[]>(
-    creneaux.filter((c) => c.etat === "a_renseigner" || c.etat === "a_reconfirmer").map((c) => c.id),
+    creneaux
+      .filter((c) => c.etat === "a_renseigner" || c.etat === "a_reconfirmer")
+      .flatMap((c) => (c.id === null ? [] : [c.id])),
   );
 
   const basculer = (id: string) =>
@@ -45,6 +52,7 @@ export function RepondreDisponibilite({
     );
 
   const tousSelectionnes = selection.length === creneaux.length;
+  const peutRepondre = surEvenement || selection.length > 0;
 
   return (
     <form action={action} className="space-y-4">
@@ -65,46 +73,61 @@ export function RepondreDisponibilite({
         </Alerte>
       ) : null}
 
-      <fieldset>
-        <legend className="text-sm font-medium">Creneaux concernes</legend>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              setSelection(tousSelectionnes ? [] : creneaux.map((c) => c.id))
-            }
-            className="min-h-9 rounded-full bg-ivoire-fonce/60-forte px-3 text-sm"
-          >
-            {tousSelectionnes ? "Tout deselectionner" : "Tous les cultes"}
-          </button>
-        </div>
-        <ul className="mt-3 space-y-2">
-          {creneaux.map((creneau) => {
-            const coche = selection.includes(creneau.id);
-            return (
-              <li key={creneau.id}>
-                <label
-                  className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-[var(--radius-doux)] border px-3 py-2 ${
-                    coche ? "border-indigo-accent bg-indigo-clair" : "border-bordure"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={coche}
-                    onChange={() => basculer(creneau.id)}
-                    className="size-5"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{creneau.label}</span>
-                    <span className="block text-sm text-nuit-doux">{creneau.heure}</span>
-                  </span>
-                  <BadgeDisponibilite etat={creneau.etat} />
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-      </fieldset>
+      {surEvenement ? (
+        <p className="text-sm text-nuit-doux">
+          {creneaux[0]!.heure} - votre reponse porte sur tout
+          l&apos;evenement.{" "}
+          <BadgeDisponibilite etat={creneaux[0]!.etat} />
+        </p>
+      ) : (
+        <fieldset>
+          <legend className="text-sm font-medium">Sous-evenements concernes</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setSelection(
+                  tousSelectionnes
+                    ? []
+                    : creneaux.flatMap((c) => (c.id === null ? [] : [c.id])),
+                )
+              }
+              className="min-h-9 rounded-full bg-ivoire-fonce/60-forte px-3 text-sm"
+            >
+              {tousSelectionnes ? "Tout deselectionner" : "Tout selectionner"}
+            </button>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {creneaux.map((creneau) => {
+              if (creneau.id === null) return null;
+              const coche = selection.includes(creneau.id);
+              return (
+                <li key={creneau.id}>
+                  <label
+                    className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-[var(--radius-doux)] border px-3 py-2 ${
+                      coche ? "border-indigo-accent bg-indigo-clair" : "border-bordure"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={coche}
+                      onChange={() => basculer(creneau.id!)}
+                      className="size-5"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium">{creneau.label}</span>
+                      <span className="block text-sm text-nuit-doux">
+                        {creneau.heure}
+                      </span>
+                    </span>
+                    <BadgeDisponibilite etat={creneau.etat} />
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </fieldset>
+      )}
 
       <div>
         <label htmlFor="motif" className="block text-sm font-medium">
@@ -127,7 +150,7 @@ export function RepondreDisponibilite({
           name="reponse"
           value="disponible"
           libelleEnCours="Enregistrement..."
-          disabled={selection.length === 0}
+          disabled={!peutRepondre}
         >
           Je suis disponible
         </SubmitButton>
@@ -136,15 +159,15 @@ export function RepondreDisponibilite({
           value="indisponible"
           variante="secondaire"
           libelleEnCours="Enregistrement..."
-          disabled={selection.length === 0}
+          disabled={!peutRepondre}
         >
           Je suis indisponible
         </SubmitButton>
       </div>
 
-      {selection.length === 0 ? (
+      {!peutRepondre ? (
         <p className="text-xs text-nuit-doux">
-          Cochez au moins un creneau pour repondre.
+          Cochez au moins un sous-evenement pour repondre.
         </p>
       ) : null}
 

@@ -149,31 +149,12 @@ create table membership_skills (
     references skills (id, community_id) on delete cascade
 );
 
-create table teams (
-  id uuid primary key default gen_random_uuid(),
-  community_id uuid not null references communities (id) on delete cascade,
-  name text not null check (length(trim(name)) > 0),
-  "order" integer not null default 1,
-  archived_at timestamptz,
-  unique (community_id, name)
-);
-
-create table team_memberships (
-  id uuid primary key default gen_random_uuid(),
-  community_id uuid not null references communities (id) on delete cascade,
-  team_id uuid not null,
-  membership_id uuid not null,
-  unique (team_id, membership_id),
-  foreign key (team_id, community_id)
-    references teams (id, community_id) on delete cascade,
-  foreign key (membership_id, community_id)
-    references community_memberships (id, community_id) on delete cascade
-);
+-- Les equipes n'apparaissent pas ici : elles appartiennent a un evenement
+-- (voir event_teams). Une communaute n'a pas de liste d'equipes durables.
 
 -- Cles uniques composites, requises par les references ci-dessus.
 alter table community_memberships add unique (id, community_id);
 alter table skills add unique (id, community_id);
-alter table teams add unique (id, community_id);
 
 -- ---------------------------------------------------------------------------
 -- Modeles de planning
@@ -220,6 +201,9 @@ create index template_fields_by_template on template_fields (template_id, "order
 -- Evenements, creneaux, plans, postes, affectations
 -- ---------------------------------------------------------------------------
 
+-- L'admin nomme l'evenement librement et le decrit. Il porte toujours son
+-- propre horaire : les sous-evenements (event_sessions) sont facultatifs, et
+-- c'est cet horaire qui sert de reference quand il n'y en a aucun.
 create table events (
   id uuid primary key default gen_random_uuid(),
   community_id uuid not null references communities (id) on delete cascade,
@@ -227,6 +211,13 @@ create table events (
   description text not null default '',
   state event_state not null default 'brouillon',
   timezone text not null default 'Europe/Paris',
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  location_name text not null default '',
+  location_address text not null default '',
+  -- Horaire encore a definir : bloque la publication.
+  schedule_provisional boolean not null default false,
+  constraint event_end_after_start check (ends_at > starts_at),
   -- Verrou optimiste : toute ecriture compare cette version.
   version integer not null default 1 check (version > 0),
   published_version integer not null default 0 check (published_version >= 0),
@@ -242,7 +233,10 @@ create table events (
 );
 
 create index events_by_community on events (community_id, state);
+create index events_by_start on events (community_id, starts_at);
 
+-- Sous-evenements : zero, un ou plusieurs par evenement (« Culte 1 »,
+-- « Culte 2 »...). Chacun a son horaire et son lieu.
 create table event_sessions (
   id uuid primary key default gen_random_uuid(),
   community_id uuid not null references communities (id) on delete cascade,
@@ -265,24 +259,64 @@ create table event_sessions (
 create index event_sessions_by_event on event_sessions (event_id, ordinal);
 create index event_sessions_by_start on event_sessions (community_id, starts_at);
 
+-- Equipes creees dans un evenement, en nombre libre. Elles disparaissent
+-- avec lui : rien n'est reutilise d'un evenement au suivant.
+create table event_teams (
+  id uuid primary key default gen_random_uuid(),
+  community_id uuid not null references communities (id) on delete cascade,
+  event_id uuid not null,
+  name text not null check (length(trim(name)) > 0),
+  "order" integer not null default 1,
+  unique (event_id, name),
+  unique (id, community_id),
+  foreign key (event_id, community_id)
+    references events (id, community_id) on delete cascade
+);
+
+create index event_teams_by_event on event_teams (event_id, "order");
+
+create table event_team_members (
+  id uuid primary key default gen_random_uuid(),
+  community_id uuid not null references communities (id) on delete cascade,
+  team_id uuid not null,
+  membership_id uuid not null,
+  unique (team_id, membership_id),
+  foreign key (team_id, community_id)
+    references event_teams (id, community_id) on delete cascade,
+  foreign key (membership_id, community_id)
+    references community_memberships (id, community_id) on delete cascade
+);
+
+-- Rattachement d'une equipe, et feuille de postes correspondante.
+-- `session_id` null signifie « toute la duree de l'evenement » ; sinon le
+-- rattachement vise un sous-evenement precis.
 create table event_plans (
   id uuid primary key default gen_random_uuid(),
   community_id uuid not null references communities (id) on delete cascade,
   event_id uuid not null,
-  session_id uuid not null,
+  session_id uuid,
   team_id uuid not null,
   template_version integer not null default 1,
   created_at timestamptz not null default now(),
-  -- Un seul plan par equipe et par creneau.
-  unique (session_id, team_id),
   unique (id, community_id),
   foreign key (event_id, community_id)
     references events (id, community_id) on delete cascade,
   foreign key (session_id, community_id)
     references event_sessions (id, community_id) on delete cascade,
   foreign key (team_id, community_id)
-    references teams (id, community_id) on delete restrict
+    references event_teams (id, community_id) on delete cascade
 );
+
+-- Un rattachement par equipe et par sous-evenement ; et au plus un
+-- rattachement « tout l'evenement » par equipe. Les index partiels sont
+-- necessaires parce qu'en SQL deux null ne sont pas egaux.
+create unique index event_plans_one_per_team_session
+  on event_plans (team_id, session_id)
+  where session_id is not null;
+
+create unique index event_plans_one_per_team_event
+  on event_plans (team_id)
+  where session_id is null;
 
 create index event_plans_by_event on event_plans (event_id);
 
@@ -341,28 +375,39 @@ create index assignments_by_plan on assignments (plan_id);
 -- Disponibilites
 -- ---------------------------------------------------------------------------
 
-create table session_availabilities (
+-- Une reponse porte sur un sous-evenement quand l'evenement en a, et sur
+-- l'evenement lui-meme sinon (`session_id` null).
+create table availabilities (
   id uuid primary key default gen_random_uuid(),
   community_id uuid not null references communities (id) on delete cascade,
-  session_id uuid not null,
+  event_id uuid not null,
+  session_id uuid,
   membership_id uuid not null,
   answer availability_answer not null,
   -- Les horaires ont change apres la reponse.
   needs_reconfirmation boolean not null default false,
   answered_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  -- Une reponse par membre et par creneau. L'absence de ligne signifie
-  -- « a renseigner » : elle n'est jamais convertie.
-  unique (session_id, membership_id),
   unique (id, community_id),
+  foreign key (event_id, community_id)
+    references events (id, community_id) on delete cascade,
   foreign key (session_id, community_id)
     references event_sessions (id, community_id) on delete cascade,
   foreign key (membership_id, community_id)
     references community_memberships (id, community_id) on delete cascade
 );
 
-create index session_availabilities_by_membership
-  on session_availabilities (membership_id);
+-- Une reponse par membre et par occurrence. L'absence de ligne signifie
+-- « a renseigner » : elle n'est jamais convertie.
+create unique index availabilities_one_per_session
+  on availabilities (session_id, membership_id)
+  where session_id is not null;
+
+create unique index availabilities_one_per_event
+  on availabilities (event_id, membership_id)
+  where session_id is null;
+
+create index availabilities_by_membership on availabilities (membership_id);
 
 -- Ressource separee : la confidentialite du motif est imposee en base par sa
 -- propre politique RLS, pas seulement par l'interface.
@@ -376,7 +421,7 @@ create table availability_reasons (
   updated_at timestamptz not null default now(),
   unique (availability_id),
   foreign key (availability_id, community_id)
-    references session_availabilities (id, community_id) on delete cascade
+    references availabilities (id, community_id) on delete cascade
 );
 
 -- ---------------------------------------------------------------------------
@@ -409,7 +454,7 @@ create table rehearsal_teams (
   foreign key (rehearsal_id, community_id)
     references rehearsals (id, community_id) on delete cascade,
   foreign key (team_id, community_id)
-    references teams (id, community_id) on delete cascade
+    references event_teams (id, community_id) on delete cascade
 );
 
 create table rehearsal_availabilities (
@@ -465,7 +510,8 @@ create table setlist_items (
   id uuid primary key default gen_random_uuid(),
   community_id uuid not null references communities (id) on delete cascade,
   event_id uuid not null,
-  session_id uuid not null,
+  -- null = liste commune a l'evenement, qui n'a pas de sous-evenement.
+  session_id uuid,
   sequence text not null,
   "order" integer not null default 1,
   song_id uuid,
@@ -483,7 +529,7 @@ create table setlist_items (
     references songs (id, community_id) on delete set null
 );
 
-create index setlist_items_by_session on setlist_items (session_id, "order");
+create index setlist_items_by_event on setlist_items (event_id, session_id, "order");
 
 -- ---------------------------------------------------------------------------
 -- Dress-code et ressources
@@ -505,7 +551,7 @@ create table dress_codes (
   foreign key (event_id, community_id)
     references events (id, community_id) on delete cascade,
   foreign key (team_id, community_id)
-    references teams (id, community_id) on delete set null
+    references event_teams (id, community_id) on delete cascade
 );
 
 -- Une consigne commune et au plus une variante par equipe.

@@ -118,7 +118,7 @@ sous verrou cote demonstration.
 | `accept_join_request` | La demande est verrouillee : deux admins ne la traitent pas deux fois. L'acceptation cree ou reactive une adhesion avec le role **membre** |
 | `change_membership_role` | **Au moins un admin actif** doit rester. La ligne est verrouillee, ce qui serialise deux retrogradations simultanees |
 | `revoke_membership` | Meme protection du dernier admin. Les affectations futures passent a « a remplacer », jamais effacees |
-| `publish_event` | Verrou de version, controles bloquants (aucun creneau, horaire provisoire, aucun plan), confirmation explicite si alertes |
+| `publish_event` | Verrou de version, controles bloquants (horaire provisoire, aucune equipe, equipe sans rattachement), confirmation explicite si alertes |
 
 Cote Supabase, l'insertion directe dans `communities` et
 `community_memberships` est **revoquee** pour le role du navigateur : ces

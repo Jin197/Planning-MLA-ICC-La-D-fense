@@ -14,7 +14,6 @@ import {
   answerRehearsalAvailability,
 } from "@/server/services/availability";
 import {
-  addPlan,
   addSession,
   addSlotToPlan,
   changeEventState,
@@ -23,6 +22,14 @@ import {
   updateSessionSchedule,
   updateSlot,
 } from "@/server/services/events";
+import {
+  addTeam,
+  attachTeam,
+  detachTeam,
+  removeTeam,
+  renameTeam,
+  setTeamMembers,
+} from "@/server/services/event-teams";
 import {
   addSetlistItem,
   copySetlist,
@@ -70,17 +77,17 @@ export async function actionRepondreDisponibilite(
 ): Promise<FormState> {
   const communityId = texte(data, "communityId");
   const eventId = texte(data, "eventId");
+  // Liste vide : l'evenement n'a pas de sous-evenement, la reponse porte
+  // sur lui. Le service le verifie et refuse une liste vide s'il en a.
   const sessionIds = liste(data, "sessionIds");
   const reponse = texte(data, "reponse");
 
-  if (sessionIds.length === 0) {
-    return echec("Choisissez au moins un creneau.");
-  }
   if (reponse !== "disponible" && reponse !== "indisponible") {
     return echec("Choisissez « Disponible » ou « Indisponible ».");
   }
 
   const result = await answerAvailability(communityId, {
+    eventId,
     sessionIds,
     answer: reponse,
     reason: texteOuNull(data, "motif"),
@@ -88,7 +95,7 @@ export async function actionRepondreDisponibilite(
   if (!result.ok) return echec(result.message);
   rafraichir(communityId, eventId);
   return succes(
-    `Reponse enregistree pour ${result.value.saved} creneau(x). Le motif reste visible par vous et les admins uniquement.`,
+    `Reponse enregistree (${result.value.saved}). Le motif reste visible par vous et les admins uniquement.`,
   );
 }
 
@@ -274,10 +281,24 @@ export async function actionModifierEvenement(
 ): Promise<FormState> {
   const communityId = texte(data, "communityId");
   const eventId = texte(data, "eventId");
+  const dateDebut = texte(data, "dateDebut");
   const result = await updateEvent(communityId, eventId, {
     expectedVersion: nombre(data, "version"),
     title: texte(data, "titre"),
     description: texte(data, "description"),
+    locationName: texte(data, "lieu"),
+    locationAddress: texte(data, "adresse"),
+    ...(dateDebut === ""
+      ? {}
+      : {
+          start: { date: dateDebut, time: texte(data, "heureDebut") },
+          // La fin peut tomber le lendemain.
+          end: {
+            date: texte(data, "dateFin") || dateDebut,
+            time: texte(data, "heureFin"),
+          },
+          clearProvisional: true,
+        }),
   });
   if (!result.ok) return echec(result.message);
   rafraichir(communityId, eventId);
@@ -303,14 +324,15 @@ export async function actionModifierCreneau(
   rafraichir(communityId, eventId);
   return succes(
     result.value.reconfirmations > 0
-      ? `Creneau mis a jour. ${result.value.reconfirmations} reponse(s) passent a « a reconfirmer » et les personnes concernees sont prevenues.`
-      : "Creneau mis a jour.",
+      ? `Sous-evenement mis a jour. ${result.value.reconfirmations} reponse(s) passent a « a reconfirmer » et les personnes concernees sont prevenues.`
+      : "Sous-evenement mis a jour.",
   );
 }
 
 /**
- * Ajoute un creneau a un evenement deja cree, par exemple un cinquieme culte
- * decide en cours de route. Les postes du modele y sont copies.
+ * Ajoute un sous-evenement a un evenement deja cree, par exemple un
+ * cinquieme culte decide en cours de route. Les equipes cochees y sont
+ * rattachees, avec les postes du modele.
  */
 export async function actionAjouterCreneau(
   _etat: FormState,
@@ -340,25 +362,122 @@ export async function actionAjouterCreneau(
   if (!result.ok) return echec(result.message);
   rafraichir(communityId, eventId);
   return succes(
-    "Creneau ajoute, avec les postes du modele. Les membres peuvent y repondre.",
+    "Sous-evenement ajoute. Les membres peuvent y repondre, et les equipes rattachees y ont leurs postes.",
   );
 }
 
-/** Prepare le plan d'une equipe supplementaire sur un creneau existant. */
-export async function actionAjouterEquipe(
+/* -------------------------------------------------------------------------- */
+/* Equipes de l'evenement                                                     */
+/* -------------------------------------------------------------------------- */
+
+export async function actionCreerEquipe(
   _etat: FormState,
   data: FormData,
 ): Promise<FormState> {
   const communityId = texte(data, "communityId");
   const eventId = texte(data, "eventId");
-  const result = await addPlan(communityId, {
-    sessionId: texte(data, "sessionId"),
-    teamId: texte(data, "teamId"),
+  const result = await addTeam(communityId, eventId, {
+    name: texte(data, "nom"),
+    membershipIds: liste(data, "membres"),
+    sessionIds: liste(data, "sessionIds"),
+    expectedVersion: nombre(data, "version"),
+  });
+  if (!result.ok) {
+    return echec(result.message, { valeurs: { nom: texte(data, "nom") } });
+  }
+  rafraichir(communityId, eventId);
+  return succes(
+    "Equipe creee dans cet evenement, avec les postes du modele sur chaque rattachement.",
+  );
+}
+
+export async function actionRenommerEquipe(
+  _etat: FormState,
+  data: FormData,
+): Promise<FormState> {
+  const communityId = texte(data, "communityId");
+  const eventId = texte(data, "eventId");
+  const result = await renameTeam(communityId, texte(data, "teamId"), {
+    name: texte(data, "nom"),
     expectedVersion: nombre(data, "version"),
   });
   if (!result.ok) return echec(result.message);
   rafraichir(communityId, eventId);
-  return succes("Plan d'equipe ajoute sur ce creneau, avec les postes du modele.");
+  return succes("Equipe renommee.");
+}
+
+export async function actionSupprimerEquipe(
+  _etat: FormState,
+  data: FormData,
+): Promise<FormState> {
+  const communityId = texte(data, "communityId");
+  const eventId = texte(data, "eventId");
+  const result = await removeTeam(communityId, texte(data, "teamId"), {
+    expectedVersion: nombre(data, "version"),
+  });
+  if (!result.ok) return echec(result.message);
+  rafraichir(communityId, eventId);
+  return succes(
+    result.value.assignmentsRemoved > 0
+      ? `Equipe supprimee, avec ${result.value.assignmentsRemoved} affectation(s) qui en dependaient.`
+      : "Equipe supprimee.",
+  );
+}
+
+export async function actionEffectifEquipe(
+  _etat: FormState,
+  data: FormData,
+): Promise<FormState> {
+  const communityId = texte(data, "communityId");
+  const eventId = texte(data, "eventId");
+  const result = await setTeamMembers(communityId, texte(data, "teamId"), {
+    membershipIds: liste(data, "membres"),
+    expectedVersion: nombre(data, "version"),
+  });
+  if (!result.ok) return echec(result.message);
+  rafraichir(communityId, eventId);
+  return succes(
+    `Effectif enregistre : ${result.value.members} personne(s). Elles apparaissent en tete du choix des candidats.`,
+  );
+}
+
+/** Rattache une equipe a un sous-evenement, ou a tout l'evenement. */
+export async function actionRattacherEquipe(
+  _etat: FormState,
+  data: FormData,
+): Promise<FormState> {
+  const communityId = texte(data, "communityId");
+  const eventId = texte(data, "eventId");
+  const sessionId = texte(data, "sessionId");
+  const result = await attachTeam(communityId, texte(data, "teamId"), {
+    sessionId: sessionId === "" ? null : sessionId,
+    expectedVersion: nombre(data, "version"),
+  });
+  if (!result.ok) return echec(result.message);
+  rafraichir(communityId, eventId);
+  return succes(
+    sessionId === ""
+      ? "Equipe rattachee a toute la duree de l'evenement, avec les postes du modele."
+      : "Equipe rattachee a ce sous-evenement, avec les postes du modele.",
+  );
+}
+
+export async function actionDetacherEquipe(
+  _etat: FormState,
+  data: FormData,
+): Promise<FormState> {
+  const communityId = texte(data, "communityId");
+  const eventId = texte(data, "eventId");
+  const result = await detachTeam(communityId, texte(data, "planId"), {
+    expectedVersion: nombre(data, "version"),
+  });
+  if (!result.ok) return echec(result.message);
+  rafraichir(communityId, eventId);
+  return succes(
+    result.value.assignmentsRemoved > 0
+      ? `Rattachement retire, avec ${result.value.assignmentsRemoved} affectation(s).`
+      : "Rattachement retire.",
+  );
 }
 
 export async function actionDupliquer(
@@ -390,8 +509,10 @@ export async function actionAjouterChant(
 ): Promise<FormState> {
   const communityId = texte(data, "communityId");
   const eventId = texte(data, "eventId");
+  const sessionId = texte(data, "sessionId");
   const result = await addSetlistItem(communityId, {
-    sessionId: texte(data, "sessionId"),
+    eventId,
+    sessionId: sessionId === "" ? null : sessionId,
     sequence: texte(data, "sequence"),
     songId: texteOuNull(data, "songId"),
     freeTitle: texteOuNull(data, "titreLibre"),
@@ -400,7 +521,7 @@ export async function actionAjouterChant(
   });
   if (!result.ok) return echec(result.message);
   rafraichir(communityId, eventId);
-  return succes("Chant ajoute a la liste de ce creneau.");
+  return succes("Chant ajoute a la liste.");
 }
 
 export async function actionRetirerChant(
@@ -434,11 +555,10 @@ export async function actionCopierListeChants(
 ): Promise<FormState> {
   const communityId = texte(data, "communityId");
   const eventId = texte(data, "eventId");
-  const result = await copySetlist(
-    communityId,
-    texte(data, "sourceSessionId"),
-    texte(data, "cibleSessionId"),
-  );
+  const result = await copySetlist(communityId, eventId, {
+    source: texte(data, "sourceSessionId") || null,
+    cible: texte(data, "cibleSessionId") || null,
+  });
   if (!result.ok) return echec(result.message);
   rafraichir(communityId, eventId);
   return succes(

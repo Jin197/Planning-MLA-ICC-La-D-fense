@@ -33,6 +33,8 @@ export interface CandidateView {
   skills: string[];
   availability: AvailabilityDisplayState;
   matchesSkills: boolean;
+  /** La personne fait partie de l'effectif de l'equipe de ce plan. */
+  inTeam: boolean;
   conflicts: ConflictDetail[];
   alreadyOnThisSlot: boolean;
   otherRolesThisSession: string[];
@@ -64,28 +66,36 @@ async function commitmentsForUser(
     whereIn: { id: assignments.map((a) => a.planId) },
   });
   const sessions = await tx.select("event_sessions", {
-    whereIn: { id: plans.map((p) => p.sessionId) },
+    whereIn: {
+      id: plans
+        .map((p) => p.sessionId)
+        .filter((id): id is Id => id !== null),
+    },
   });
   const events = await tx.select("events", {
-    whereIn: { id: [...new Set(sessions.map((s) => s.eventId))] },
+    whereIn: { id: [...new Set(plans.map((p) => p.eventId))] },
   });
   const eventById = new Map(events.map((e) => [e.id, e]));
 
   const out: Commitment[] = [];
   for (const plan of plans) {
-    const session = sessions.find((s) => s.id === plan.sessionId);
-    if (!session) continue;
-    const event = eventById.get(session.eventId);
+    const event = eventById.get(plan.eventId);
     if (!event || event.state === "annule") continue;
+    // Une equipe rattachee a tout l'evenement engage sur sa duree entiere.
+    const session =
+      plan.sessionId === null
+        ? null
+        : (sessions.find((s) => s.id === plan.sessionId) ?? null);
+    if (plan.sessionId !== null && !session) continue;
     out.push({
       kind: "creneau",
-      communityId: session.communityId,
-      eventId: session.eventId,
-      refId: session.id,
-      label: session.label,
+      communityId: plan.communityId,
+      eventId: plan.eventId,
+      refId: session?.id ?? plan.eventId,
+      label: session?.label ?? event.title,
       eventTitle: event.title,
-      startsAt: session.startsAt,
-      endsAt: session.endsAt,
+      startsAt: session?.startsAt ?? event.startsAt,
+      endsAt: session?.endsAt ?? event.endsAt,
     });
   }
 
@@ -133,10 +143,21 @@ export async function listCandidates(
     if (!slot) return err("poste_inconnu", "Poste introuvable.");
     const plan = await tx.selectOne("event_plans", { where: { id: slot.planId } });
     if (!plan) return err("plan_inconnu", "Plan introuvable.");
-    const session = await tx.selectOne("event_sessions", {
-      where: { id: plan.sessionId },
-    });
-    if (!session) return err("creneau_inconnu", "Creneau introuvable.");
+    const event = await tx.selectOne("events", { where: { id: plan.eventId } });
+    if (!event) return err("evenement_inconnu", "Evenement introuvable.");
+    // Le plan vise un sous-evenement, ou toute la duree de l'evenement.
+    const session =
+      plan.sessionId === null
+        ? null
+        : await tx.selectOne("event_sessions", { where: { id: plan.sessionId } });
+    if (plan.sessionId !== null && !session) {
+      return err("sous_evenement_inconnu", "Sous-evenement introuvable.");
+    }
+    const occurrence = {
+      refId: session?.id ?? event.id,
+      startsAt: session?.startsAt ?? event.startsAt,
+      endsAt: session?.endsAt ?? event.endsAt,
+    };
 
     const memberships = await tx.select("community_memberships", {
       where: { communityId, status: "active" },
@@ -146,12 +167,15 @@ export async function listCandidates(
     });
     const skills = await tx.select("skills", { where: { communityId } });
     const links = await tx.select("membership_skills", { where: { communityId } });
-    const availabilities = await tx.select("session_availabilities", {
-      where: { sessionId: session.id },
+    const teamMembers = await tx.select("event_team_members", {
+      where: { teamId: plan.teamId },
     });
-    const sessionPlans = await tx.select("event_plans", {
-      where: { sessionId: session.id },
-    });
+    const availabilities = (
+      await tx.select("availabilities", { where: { eventId: plan.eventId } })
+    ).filter((a) => a.sessionId === plan.sessionId);
+    const sessionPlans = (
+      await tx.select("event_plans", { where: { eventId: plan.eventId } })
+    ).filter((p) => p.sessionId === plan.sessionId);
     const sessionSlots = await tx.select("event_role_slots", {
       whereIn: { planId: sessionPlans.map((p) => p.id) },
     });
@@ -191,11 +215,7 @@ export async function listCandidates(
       );
 
       const commitments = await commitmentsForUser(tx, membership.userId);
-      const report = detectConflicts(
-        { startsAt: session.startsAt, endsAt: session.endsAt, refId: session.id },
-        commitments,
-        communityId,
-      );
+      const report = detectConflicts(occurrence, commitments, communityId);
 
       const otherRoles = sessionAssignments
         .filter((a) => a.membershipId === membership.id && a.slotId !== slotId)
@@ -209,6 +229,7 @@ export async function listCandidates(
         skills: memberSkills,
         availability,
         matchesSkills,
+        inTeam: teamMembers.some((t) => t.membershipId === membership.id),
         conflicts: report.conflicts,
         alreadyOnThisSlot: sessionAssignments.some(
           (a) => a.slotId === slotId && a.membershipId === membership.id,
@@ -225,7 +246,12 @@ export async function listCandidates(
           (c) => c.availability === "disponible" && (c.matchesSkills || c.skills.length === 0),
         );
 
-    filtered.sort((a, b) => a.name.localeCompare(b.name, "fr"));
+    // L'effectif de l'equipe d'abord : c'est la composition voulue par
+    // l'admin, le reste de la communaute vient apres.
+    filtered.sort(
+      (a, b) =>
+        Number(b.inTeam) - Number(a.inTeam) || a.name.localeCompare(b.name, "fr"),
+    );
     return ok({ candidates: filtered, slotLabel: slot.label });
   });
 }
@@ -255,13 +281,20 @@ export async function assignMember(
       if (!slot) return err("poste_inconnu", "Poste introuvable.");
       const plan = await tx.selectOne("event_plans", { where: { id: slot.planId } });
       if (!plan) return err("plan_inconnu", "Plan introuvable.");
-      const session = await tx.selectOne("event_sessions", {
-        where: { id: plan.sessionId },
-      });
       const event = await tx.selectOne("events", { where: { id: plan.eventId } });
-      if (!session || !event) {
-        return err("evenement_inconnu", "Evenement introuvable.");
+      if (!event) return err("evenement_inconnu", "Evenement introuvable.");
+      const session =
+        plan.sessionId === null
+          ? null
+          : await tx.selectOne("event_sessions", { where: { id: plan.sessionId } });
+      if (plan.sessionId !== null && !session) {
+        return err("sous_evenement_inconnu", "Sous-evenement introuvable.");
       }
+      const occurrence = {
+        refId: session?.id ?? event.id,
+        startsAt: session?.startsAt ?? event.startsAt,
+        endsAt: session?.endsAt ?? event.endsAt,
+      };
       if (event.state === "annule" || event.state === "archive") {
         return err(
           "evenement_ferme",
@@ -288,9 +321,12 @@ export async function assignMember(
         );
       }
 
-      const availabilityRow = await tx.selectOne("session_availabilities", {
-        where: { sessionId: session.id, membershipId: membership.id },
-      });
+      const availabilityRow =
+        (
+          await tx.select("availabilities", {
+            where: { eventId: event.id, membershipId: membership.id },
+          })
+        ).find((a) => a.sessionId === plan.sessionId) ?? null;
       const availability = displayState(availabilityRow);
 
       const skills = await tx.select("skills", { where: { communityId } });
@@ -311,11 +347,7 @@ export async function assignMember(
             );
 
       const commitments = await commitmentsForUser(tx, membership.userId);
-      const conflictReport = detectConflicts(
-        { startsAt: session.startsAt, endsAt: session.endsAt, refId: session.id },
-        commitments,
-        communityId,
-      );
+      const conflictReport = detectConflicts(occurrence, commitments, communityId);
 
       const requirement = exceptionRequirement({
         availability,
@@ -370,7 +402,7 @@ export async function assignMember(
         recipientUserIds: [membership.userId],
         communityId,
         eventId: event.id,
-        body: `Vous etes affecte au poste « ${slot.label} » sur « ${event.title} » (${session.label}). Merci de confirmer.`,
+        body: `Vous etes affecte au poste « ${slot.label} » sur « ${event.title} » (${session?.label ?? "tout l'evenement"}). Merci de confirmer.`,
         href: `/c/${communityId}/evenements/${event.id}`,
         subjectId: assignmentId,
       });
@@ -510,6 +542,8 @@ export async function conflictCountForEvent(
   await requireCommunityAction(communityId, "evenement.voir_affectations");
   const adapter = getDataAdapter();
   return adapter.read(async (tx) => {
+    const event = await tx.selectOne("events", { where: { id: eventId, communityId } });
+    if (!event) return 0;
     const plans = await tx.select("event_plans", { where: { eventId } });
     const assignments = (
       await tx.select("assignments", { whereIn: { planId: plans.map((p) => p.id) } })
@@ -522,12 +556,21 @@ export async function conflictCountForEvent(
     let count = 0;
     for (const assignment of assignments) {
       const plan = plans.find((p) => p.id === assignment.planId);
-      const session = sessions.find((s) => s.id === plan?.sessionId);
+      if (!plan) continue;
+      const session =
+        plan.sessionId === null
+          ? null
+          : sessions.find((s) => s.id === plan.sessionId);
+      if (plan.sessionId !== null && !session) continue;
       const membership = memberships.find((m) => m.id === assignment.membershipId);
-      if (!session || !membership) continue;
+      if (!membership) continue;
       const commitments = await commitmentsForUser(tx, membership.userId);
       const report = detectConflicts(
-        { startsAt: session.startsAt, endsAt: session.endsAt, refId: session.id },
+        {
+          startsAt: session?.startsAt ?? event.startsAt,
+          endsAt: session?.endsAt ?? event.endsAt,
+          refId: session?.id ?? event.id,
+        },
         commitments,
         communityId,
       );

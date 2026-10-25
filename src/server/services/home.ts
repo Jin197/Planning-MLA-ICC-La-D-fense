@@ -1,5 +1,6 @@
 import "server-only";
 import { nowIso } from "@/lib/time";
+import { occurrencesOf } from "@/domain/events";
 import { canSeeAssignments, canSeeEvent } from "@/domain/permissions";
 import { computeSlotFill } from "@/domain/assignments";
 import type { AssignmentState, EventState, Id } from "@/domain/types";
@@ -32,8 +33,11 @@ export interface ReponseAttendue {
   eventId: Id;
   eventTitle: string;
   timezone: string;
-  /** Creneaux sans reponse. */
-  sessions: { id: Id; label: string; startsAt: string }[];
+  /**
+   * Occurrences sans reponse. `sessionId` vaut null quand l'evenement n'a
+   * pas de sous-evenement : la reponse porte alors sur lui.
+   */
+  sessions: { sessionId: Id | null; label: string; startsAt: string }[];
   deadline: string | null;
 }
 
@@ -116,7 +120,7 @@ export async function loadTableauDeBord(): Promise<TableauDeBord> {
     const assignments = await tx.select("assignments", {
       whereIn: { membershipId: memberships.map((m) => m.id) },
     });
-    const availabilities = await tx.select("session_availabilities", {
+    const availabilities = await tx.select("availabilities", {
       whereIn: { membershipId: memberships.map((m) => m.id) },
     });
 
@@ -130,11 +134,15 @@ export async function loadTableauDeBord(): Promise<TableauDeBord> {
     for (const assignment of assignments) {
       if (assignment.state === "retiree") continue;
       const plan = planById.get(assignment.planId);
-      const session_ = plan ? sessionById.get(plan.sessionId) : undefined;
       const event = plan ? eventById.get(plan.eventId) : undefined;
-      if (!plan || !session_ || !event) continue;
+      if (!plan || !event) continue;
+      // Un plan rattache a tout l'evenement se lit sur l'horaire de celui-ci.
+      const session_ =
+        plan.sessionId === null ? null : sessionById.get(plan.sessionId);
+      if (plan.sessionId !== null && !session_) continue;
+      const startsAt = session_?.startsAt ?? event.startsAt;
       if (event.state === "annule" || event.state === "archive") continue;
-      if (session_.startsAt < at) continue;
+      if (startsAt < at) continue;
       const membership = membershipOf.get(event.communityId);
       if (!membership) continue;
       // Pendant la collecte, le membre ne voit pas encore le plan.
@@ -154,8 +162,8 @@ export async function loadTableauDeBord(): Promise<TableauDeBord> {
         communityName: nameOf.get(event.communityId) ?? "",
         eventId: event.id,
         eventTitle: event.title,
-        sessionLabel: session_.label,
-        startsAt: session_.startsAt,
+        sessionLabel: session_?.label ?? "Tout l'evenement",
+        startsAt,
         timezone: event.timezone,
         slotLabel: slotById.get(assignment.slotId)?.label ?? "Poste",
         detail: assignment.detail,
@@ -171,13 +179,17 @@ export async function loadTableauDeBord(): Promise<TableauDeBord> {
       if (event.state !== "collecte" && event.state !== "publie") continue;
       const membership = membershipOf.get(event.communityId);
       if (!membership) continue;
-      const own = sessions
-        .filter((s) => s.eventId === event.id && s.startsAt >= at)
-        .sort((a, b) => a.ordinal - b.ordinal);
+      const own = occurrencesOf(
+        event,
+        sessions.filter((s) => s.eventId === event.id),
+      ).filter((o) => o.startsAt >= at);
       const manquants = own.filter(
-        (s) =>
+        (o) =>
           !availabilities.some(
-            (a) => a.sessionId === s.id && a.membershipId === membership.id,
+            (a) =>
+              a.eventId === event.id &&
+              a.sessionId === o.sessionId &&
+              a.membershipId === membership.id,
           ),
       );
       if (manquants.length === 0) continue;
@@ -187,10 +199,10 @@ export async function loadTableauDeBord(): Promise<TableauDeBord> {
         eventId: event.id,
         eventTitle: event.title,
         timezone: event.timezone,
-        sessions: manquants.map((s) => ({
-          id: s.id,
-          label: s.label,
-          startsAt: s.startsAt,
+        sessions: manquants.map((o) => ({
+          sessionId: o.sessionId,
+          label: o.label,
+          startsAt: o.startsAt,
         })),
         deadline: event.responseDeadline,
       });
@@ -200,25 +212,29 @@ export async function loadTableauDeBord(): Promise<TableauDeBord> {
     );
 
     /* Prochain evenement, toutes communautes. */
-    const prochainCreneau = sessions
-      .filter((s) => s.startsAt >= at && eventById.has(s.eventId))
+    const prochaine = visibleEvents
+      .flatMap((event) =>
+        occurrencesOf(
+          event,
+          sessions.filter((s) => s.eventId === event.id),
+        ).map((o) => ({ ...o, event })),
+      )
+      .filter((o) => o.startsAt >= at)
       .sort((a, b) => (a.startsAt < b.startsAt ? -1 : 1))[0];
-    const prochainEvent = prochainCreneau
-      ? eventById.get(prochainCreneau.eventId)
-      : undefined;
-    const prochainEvenement: ProchainEvenement | null =
-      prochainCreneau && prochainEvent
-        ? {
-            communityId: prochainEvent.communityId,
-            communityName: nameOf.get(prochainEvent.communityId) ?? "",
-            eventId: prochainEvent.id,
-            title: prochainEvent.title,
-            state: prochainEvent.state,
-            timezone: prochainEvent.timezone,
-            startsAt: prochainCreneau.startsAt,
-            sessionLabel: prochainCreneau.label,
-          }
-        : null;
+    const prochainEvenement: ProchainEvenement | null = prochaine
+      ? {
+          communityId: prochaine.event.communityId,
+          communityName: nameOf.get(prochaine.event.communityId) ?? "",
+          eventId: prochaine.event.id,
+          title: prochaine.event.title,
+          state: prochaine.event.state,
+          timezone: prochaine.event.timezone,
+          startsAt: prochaine.startsAt,
+          // Pour un evenement sans sous-evenement, l'occurrence porte le
+          // titre : on ne le repete pas en sous-titre.
+          sessionLabel: prochaine.sessionId === null ? "" : prochaine.label,
+        }
+      : null;
 
     /* Taches d'administration. */
     const tachesAdmin: TacheAdmin[] = [];

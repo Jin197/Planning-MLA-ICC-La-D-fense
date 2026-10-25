@@ -25,6 +25,8 @@ Puis <http://localhost:3000>.
 
 Mot de passe commun : `diapason2026`. Ces comptes et ces plannings sont
 **fictifs** : aucune identite ni aucun motif du classeur source n'y figure.
+Les dates sont calculees a l'installation, autour du dernier dimanche
+d'octobre encore a venir : le jeu ne devient jamais perime.
 
 | Email | Role | Ce qu'il permet de voir |
 | --- | --- | --- |
@@ -42,21 +44,25 @@ Pour une visite guidee complete, suivez
 1. **Admin** : selecteur de communaute → *MLA La Defense (demonstration)* →
    Planning. Trois vues : Agenda, Calendrier, Tableau — calculees sur les
    memes donnees.
-2. Ouvrir *Cultes du dimanche 18 octobre*, onglet **Creneaux et equipes** →
+2. Ouvrir le **dimanche publie**, onglet **Equipes et postes** →
    « Affecter sur « Guitare » » → cocher **Tous les membres**. Disponibilite,
    competences, conflits et exigence de motif administratif apparaissent.
-3. Onglet **Repetitions** de l'evenement du 25 octobre : une repetition de
+   L'effectif de l'equipe apparait en tete des candidats.
+3. *Soiree speciale anniversaire* (brouillon) : un evenement **sans
+   sous-evenement**. Il porte lui-meme son horaire, son equipe couvre toute sa
+   duree, et les membres y repondent une seule fois.
+4. Onglet **Repetitions** du **dimanche en collecte** : une repetition de
    22 h a 00 h 30 (2 h 30, « se termine le lendemain ») et une sur la nuit du
    changement d'heure.
-4. *Cultes du dimanche 25 octobre* : panneau **Avant publication**, avec les
+5. Sur ce meme dimanche : panneau **Avant publication**, avec les
    postes a completer, les reponses manquantes et les affectations non
    confirmees.
-5. **Membre** (`elias.marchand`) : l'accueil liste les disponibilites a
+6. **Membre** (`elias.marchand`) : l'accueil liste les disponibilites a
    renseigner ; deux interactions suffisent pour repondre.
-6. **Import** (admin, menu lateral) : charger
+7. **Import** (admin, menu lateral) : charger
    `PLANNING MLA LA DEFENSE (1).xlsx`. L'analyse lit les cinq feuilles **sans
    rien ecrire**.
-7. `/dev/boite-mail` : la file de notifications reste a l'etat
+8. `/dev/boite-mail` : la file de notifications reste a l'etat
    « enregistre » — aucun fournisseur d'email n'est configure, donc rien n'est
    envoye.
 

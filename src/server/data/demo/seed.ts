@@ -2,6 +2,7 @@ import "server-only";
 import { newId, slugify } from "@/lib/ids";
 import { localToUtc, type LocalDateTimeInput } from "@/lib/time";
 import { DEFAULT_PREFERENCES } from "@/domain/notifications";
+import { eventWindow } from "@/domain/events";
 import { buildTemplate } from "@/domain/template";
 import { copyTemplateIntoPlan } from "@/domain/template";
 import type {
@@ -15,8 +16,8 @@ import type {
   EventState,
   Id,
   Profile,
+  EventTeam,
   Rehearsal,
-  Team,
 } from "@/domain/types";
 import { hashPassword } from "../../auth/password";
 import { emptySnapshot, type Snapshot } from "./store";
@@ -36,6 +37,51 @@ export const DEMO_PASSWORD = "diapason2026";
 
 const at = (date: string, time: string): string =>
   localToUtc({ date, time } satisfies LocalDateTimeInput, TZ);
+
+/* -------------------------------------------------------------------------- */
+/* Dates du jeu                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Les dates ne sont pas ecrites en dur : elles sont calculees a
+ * l'installation, autour d'une ancre encore a venir.
+ *
+ * Un jeu de demonstration date finit par expirer : passe ses dates, plus
+ * aucune collecte n'est ouverte, les limites de reponse sont depassees, et
+ * l'application se montre vide alors qu'elle fonctionne.
+ *
+ * L'ancre est le dernier dimanche d'octobre, parce que la nuit precedente est
+ * celle du passage a l'heure d'hiver en Europe/Paris : la demonstration garde
+ * ainsi sa repetition de 23:00 a 01:30 cette nuit-la, qui doit durer 2 h 30.
+ */
+function dernierDimancheDOctobre(annee: number): Date {
+  // getUTCDay() du 31 octobre donne le nombre de jours a retirer.
+  const trenteEtUn = new Date(Date.UTC(annee, 9, 31));
+  return new Date(Date.UTC(annee, 9, 31 - trenteEtUn.getUTCDay()));
+}
+
+export function ancreDemo(aujourdhui = new Date()): Date {
+  const annee = aujourdhui.getUTCFullYear();
+  const candidat = dernierDimancheDOctobre(annee);
+  // Trois semaines de marge : la limite de reponse et la repetition la plus
+  // ancienne restent elles aussi dans le futur.
+  const marge = 21 * 86400000;
+  return candidat.getTime() - aujourdhui.getTime() > marge
+    ? candidat
+    : dernierDimancheDOctobre(annee + 1);
+}
+
+/** Jour calendaire (AAAA-MM-JJ) decale de `jours` par rapport a l'ancre. */
+const jourDecale = (ancre: Date, jours: number): string =>
+  new Date(ancre.getTime() + jours * 86400000).toISOString().slice(0, 10);
+
+/** « 31 octobre », pour nommer les evenements d'apres leur date reelle. */
+const libelleJour = (date: string): string =>
+  new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long",
+    timeZone: TZ,
+  }).format(new Date(`${date}T12:00:00.000Z`));
 
 interface PersonSeed {
   firstName: string;
@@ -169,10 +215,9 @@ function addCommunity(
     type: CommunityType;
     description: string;
     leaderEmail: string;
-    teamNames: string[];
     skillLabels: string[];
   },
-): { community: Community; teams: Team[]; templateId: Id; fieldIds: Id[] } {
+): { community: Community; templateId: Id; fieldIds: Id[] } {
   const leader = ctx.profileByEmail.get(input.leaderEmail)!;
   const community: Community = {
     id: newId(),
@@ -192,15 +237,6 @@ function addCommunity(
   ctx.snap.planning_templates.push(template);
   ctx.snap.template_fields.push(...fields);
 
-  const teams: Team[] = input.teamNames.map((name, i) => ({
-    id: newId(),
-    communityId: community.id,
-    name,
-    order: i + 1,
-    archivedAt: null,
-  }));
-  ctx.snap.teams.push(...teams);
-
   ctx.snap.skills.push(
     ...input.skillLabels.map((label) => ({
       id: newId(),
@@ -211,7 +247,6 @@ function addCommunity(
 
   return {
     community,
-    teams,
     templateId: template.id,
     fieldIds: fields.map((f) => f.id),
   };
@@ -237,6 +272,13 @@ function addMembership(
   return membership;
 }
 
+/**
+ * Cree un evenement de demonstration : son horaire propre, ses eventuels
+ * sous-evenements, et ses equipes — qui n'existent que pour lui.
+ *
+ * `plan(sessionId, nomEquipe)` rend le plan correspondant, avec `null` pour
+ * une equipe rattachee a toute la duree de l'evenement.
+ */
 function addEvent(
   ctx: Ctx,
   input: {
@@ -245,7 +287,15 @@ function addEvent(
     description: string;
     state: EventState;
     createdByEmail: string;
-    sessions: {
+    /** Horaire propre de l'evenement. Deduit des sous-evenements si omis. */
+    date?: string;
+    start?: string;
+    end?: string;
+    location?: string;
+    address?: string;
+    provisional?: boolean;
+    /** Sous-evenements, facultatifs. */
+    sessions?: {
       label: string;
       date: string;
       start: string;
@@ -254,7 +304,11 @@ function addEvent(
       address?: string;
       provisional?: boolean;
     }[];
-    teamIds: Id[];
+    /**
+     * Equipes creees dans l'evenement. `sessionOrdinals` vide rattache
+     * l'equipe a toute la duree de l'evenement.
+     */
+    teams: { name: string; memberIds?: Id[]; sessionOrdinals?: number[] }[];
     rehearsals?: {
       label: string;
       startDate: string;
@@ -264,12 +318,43 @@ function addEvent(
       location: string;
       address: string;
       room: string;
-      teamIds: Id[];
+      teamNames: string[];
     }[];
     deadline?: { date: string; time: string };
   },
-): { event: Event; sessions: EventSession[]; planIds: Map<string, Id> } {
+): {
+  event: Event;
+  sessions: EventSession[];
+  teams: EventTeam[];
+  plan: (sessionId: Id | null, teamName: string) => Id;
+} {
   const creator = ctx.profileByEmail.get(input.createdByEmail)!;
+  const sousEvenements = input.sessions ?? [];
+
+  const sessions: EventSession[] = sousEvenements.map((s, i) => ({
+    id: newId(),
+    communityId: input.communityId,
+    eventId: "",
+    label: s.label,
+    ordinal: i + 1,
+    startsAt: at(s.date, s.start),
+    endsAt: at(s.date, s.end),
+    locationName: s.location ?? "ICC La Defense",
+    locationAddress: s.address ?? "Paris La Defense",
+    scheduleProvisional: s.provisional ?? false,
+  }));
+
+  // Horaire propre de l'evenement : celui annonce, elargi a ses
+  // sous-evenements. Sans sous-evenement, c'est le seul horaire.
+  const annonce =
+    input.date && input.start && input.end
+      ? { startsAt: at(input.date, input.start), endsAt: at(input.date, input.end) }
+      : {
+          startsAt: sessions[0]!.startsAt,
+          endsAt: sessions[sessions.length - 1]!.endsAt,
+        };
+  const fenetre = eventWindow(annonce, sessions);
+
   const event: Event = {
     id: newId(),
     communityId: input.communityId,
@@ -277,6 +362,11 @@ function addEvent(
     description: input.description,
     state: input.state,
     timezone: TZ,
+    startsAt: fenetre.startsAt,
+    endsAt: fenetre.endsAt,
+    locationName: input.location ?? "ICC La Defense",
+    locationAddress: input.address ?? "Paris La Defense",
+    scheduleProvisional: input.provisional ?? false,
     version: 1,
     publishedVersion: input.state === "publie" || input.state === "archive" ? 1 : 0,
     responseDeadline: input.deadline
@@ -293,18 +383,7 @@ function addEvent(
   };
   ctx.snap.events.push(event);
 
-  const sessions: EventSession[] = input.sessions.map((s, i) => ({
-    id: newId(),
-    communityId: input.communityId,
-    eventId: event.id,
-    label: s.label,
-    ordinal: i + 1,
-    startsAt: at(s.date, s.start),
-    endsAt: at(s.date, s.end),
-    locationName: s.location ?? "ICC La Defense",
-    locationAddress: s.address ?? "Paris La Defense",
-    scheduleProvisional: s.provisional ?? false,
-  }));
+  for (const session of sessions) session.eventId = event.id;
   ctx.snap.event_sessions.push(...sessions);
 
   const fields = ctx.snap.template_fields.filter(
@@ -314,18 +393,49 @@ function addEvent(
     (t) => t.communityId === input.communityId,
   );
 
-  // Cle « sessionId:teamId » -> planId, pour poser les affectations ensuite.
+  // Cle « sessionId|evenement:nomEquipe » -> planId, pour poser les
+  // affectations ensuite.
   const planIds = new Map<string, Id>();
-  for (const session of sessions) {
-    for (const teamId of input.teamIds) {
+  const teams: EventTeam[] = [];
+
+  for (const [index, draft] of input.teams.entries()) {
+    const team: EventTeam = {
+      id: newId(),
+      communityId: input.communityId,
+      eventId: event.id,
+      name: draft.name,
+      order: index + 1,
+    };
+    ctx.snap.event_teams.push(team);
+    teams.push(team);
+
+    for (const membershipId of draft.memberIds ?? []) {
+      ctx.snap.event_team_members.push({
+        id: newId(),
+        communityId: input.communityId,
+        teamId: team.id,
+        membershipId,
+      });
+    }
+
+    const cibles =
+      draft.sessionOrdinals && draft.sessionOrdinals.length > 0
+        ? sessions
+            .filter((s) => draft.sessionOrdinals!.includes(s.ordinal))
+            .map((s) => s.id)
+        : sessions.length === 0
+          ? [null]
+          : sessions.map((s) => s.id);
+
+    for (const sessionId of cibles) {
       const planId = newId();
-      planIds.set(`${session.id}:${teamId}`, planId);
+      planIds.set(`${sessionId ?? "evenement"}:${team.name}`, planId);
       ctx.snap.event_plans.push({
         id: planId,
         communityId: input.communityId,
         eventId: event.id,
-        sessionId: session.id,
-        teamId,
+        sessionId,
+        teamId: team.id,
         templateVersion: template?.version ?? 1,
         createdAt: ctx.now,
       });
@@ -352,31 +462,42 @@ function addEvent(
       attendanceExpected: true,
     };
     ctx.snap.rehearsals.push(rehearsal);
-    for (const teamId of r.teamIds) {
+    for (const name of r.teamNames) {
+      const team = teams.find((t) => t.name === name);
+      if (!team) continue;
       ctx.snap.rehearsal_teams.push({
         id: newId(),
         communityId: input.communityId,
         rehearsalId: rehearsal.id,
-        teamId,
+        teamId: team.id,
       });
     }
   }
 
-  return { event, sessions, planIds };
+  return {
+    event,
+    sessions,
+    teams,
+    plan: (sessionId, teamName) =>
+      planIds.get(`${sessionId ?? "evenement"}:${teamName}`)!,
+  };
 }
 
+/** `sessionId` null : la reponse porte sur l'evenement lui-meme. */
 function answer(
   ctx: Ctx,
   communityId: Id,
-  sessionId: Id,
+  eventId: Id,
+  sessionId: Id | null,
   membershipId: Id,
   value: AvailabilityAnswer,
   reason?: string,
 ): void {
   const id = newId();
-  ctx.snap.session_availabilities.push({
+  ctx.snap.availabilities.push({
     id,
     communityId,
+    eventId,
     sessionId,
     membershipId,
     answer: value,
@@ -436,7 +557,27 @@ function assign(
 
 export async function buildSeedSnapshot(): Promise<Snapshot> {
   const snap = emptySnapshot();
-  const now = at("2026-10-13", "09:00");
+
+  const ancre = ancreDemo();
+  const dates = {
+    /** Dimanche publie : le planning est complet et visible. */
+    publie: jourDecale(ancre, -7),
+    /** Dimanche en collecte : les reponses sont ouvertes. */
+    collecte: jourDecale(ancre, 0),
+    /** Dimanche archive : historique en lecture seule. */
+    archive: jourDecale(ancre, -21),
+    anniversaire: jourDecale(ancre, 27),
+    repetitionGenerale: jourDecale(ancre, -9),
+    repetitionNuit: jourDecale(ancre, -2),
+    repetitionNuitFin: jourDecale(ancre, -1),
+    /** Samedi soir du changement d'heure, et le dimanche qui suit. */
+    changementHeure: jourDecale(ancre, -1),
+    changementHeureFin: jourDecale(ancre, 0),
+    limiteReponse: jourDecale(ancre, -3),
+  };
+
+  // Les enregistrements sont ecrits comme s'ils dataient de deux semaines.
+  const now = at(jourDecale(ancre, -14), "09:00");
   const ctx: Ctx = { snap, profileByEmail: new Map(), now };
 
   // Comptes. Mot de passe commun, uniquement pour la demonstration locale.
@@ -481,7 +622,6 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
     description:
       "Ministere de louange et d'adoration du site de La Defense. Jeu de donnees fictif.",
     leaderEmail: "noa.bertrand@exemple.test",
-    teamNames: ["Equipe 1", "Equipe 2", "EJP"],
     skillLabels: [
       "LEAD",
       "Tenor",
@@ -500,7 +640,6 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
     type: "ACCUEIL",
     description: "Equipe d'accueil du dimanche. Jeu de donnees fictif.",
     leaderEmail: "sarah.lemoine@exemple.test",
-    teamNames: ["Equipe 1"],
     skillLabels: ["Accueil", "Orientation", "Placement"],
   });
 
@@ -509,7 +648,6 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
     type: "SONORISATION",
     description: "Pole technique son. Jeu de donnees fictif.",
     leaderEmail: "victor.pelletier@exemple.test",
-    teamNames: ["Equipe 1"],
     skillLabels: ["Facade", "Retours", "Captation"],
   });
 
@@ -588,52 +726,37 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
     }
   }
 
-  // Equipes.
-  const equipe1 = mla.teams[0]!;
-  const equipe2 = mla.teams[1]!;
-  const ejp = mla.teams[2]!;
-  const teamAssignments: [Team, string[]][] = [
-    [
-      equipe1,
-      [
-        "noa.bertrand@exemple.test",
-        "elias.marchand@exemple.test",
-        "maelys.fontaine@exemple.test",
-        "tobias.reverdy@exemple.test",
-        "liora.mendy@exemple.test",
-      ],
-    ],
-    [
-      equipe2,
-      [
-        "ines.valadier@exemple.test",
-        "soline.carvalho@exemple.test",
-        "ruben.dossou@exemple.test",
-        "gaspard.nguema@exemple.test",
-        "camille.aubriot@exemple.test",
-      ],
-    ],
-    [
-      ejp,
-      [
-        "camille.aubriot@exemple.test",
-        "liora.mendy@exemple.test",
-        "gaspard.nguema@exemple.test",
-      ],
-    ],
-  ];
-  for (const [team, emails] of teamAssignments) {
-    for (const email of emails) {
+  /*
+   * Compositions habituelles du MLA. Les equipes appartenant a chaque
+   * evenement, ces listes ne sont pas des equipes : elles servent de
+   * raccourci de saisie, recopie dans chaque evenement de la demonstration
+   * comme le ferait un admin.
+   */
+  const effectif = (...emails: string[]) =>
+    emails.flatMap((email) => {
       const membership = mlaMembers.get(email);
-      if (!membership) continue;
-      snap.team_memberships.push({
-        id: newId(),
-        communityId: mla.community.id,
-        teamId: team.id,
-        membershipId: membership.id,
-      });
-    }
-  }
+      return membership ? [membership.id] : [];
+    });
+
+  const EQUIPE_1 = effectif(
+    "noa.bertrand@exemple.test",
+    "elias.marchand@exemple.test",
+    "maelys.fontaine@exemple.test",
+    "tobias.reverdy@exemple.test",
+    "liora.mendy@exemple.test",
+  );
+  const EQUIPE_2 = effectif(
+    "ines.valadier@exemple.test",
+    "soline.carvalho@exemple.test",
+    "ruben.dossou@exemple.test",
+    "gaspard.nguema@exemple.test",
+    "camille.aubriot@exemple.test",
+  );
+  const EQUIPE_EJP = effectif(
+    "camille.aubriot@exemple.test",
+    "liora.mendy@exemple.test",
+    "gaspard.nguema@exemple.test",
+  );
 
   // Une demande d'adhesion en attente.
   snap.join_requests.push({
@@ -691,24 +814,29 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
   // 1. Dimanche publie, avec affectations et reponses variees.
   const published = addEvent(ctx, {
     communityId: mla.community.id,
-    title: "Cultes du dimanche 18 octobre",
+    title: `Cultes du dimanche ${libelleJour(dates.publie)}`,
     description:
       "Quatre cultes. Equipe 1 le matin, Equipe 2 l'apres-midi. Donnees fictives.",
     state: "publie",
     createdByEmail: "noa.bertrand@exemple.test",
-    sessions: sundaySessions("2026-10-18"),
-    teamIds: [equipe1.id, equipe2.id],
+    sessions: sundaySessions(dates.publie),
+    // Equipe 1 sur les deux cultes du matin, Equipe 2 sur ceux de
+    // l'apres-midi : le rattachement dit quand chacune sert.
+    teams: [
+      { name: "Equipe 1", memberIds: EQUIPE_1, sessionOrdinals: [1, 2] },
+      { name: "Equipe 2", memberIds: EQUIPE_2, sessionOrdinals: [3, 4] },
+    ],
     rehearsals: [
       {
         label: "Repetition generale",
-        startDate: "2026-10-16",
+        startDate: dates.repetitionGenerale,
         start: "19:00",
-        endDate: "2026-10-16",
+        endDate: dates.repetitionGenerale,
         end: "23:00",
         location: "Studio Hyacinthe",
         address: "12 rue de la Repetition, 92800 Puteaux",
         room: "Studio 2",
-        teamIds: [equipe1.id, equipe2.id],
+        teamNames: ["Equipe 1", "Equipe 2"],
       },
     ],
   });
@@ -722,18 +850,32 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
 
   const m = (email: string) => mlaMembers.get(email)!.id;
 
+  const repond = (
+    sessionId: Id | null,
+    email: string,
+    value: AvailabilityAnswer,
+    reason?: string,
+  ) =>
+    answer(
+      ctx,
+      mla.community.id,
+      published.event.id,
+      sessionId,
+      m(email),
+      value,
+      reason,
+    );
+
   // Disponibilites differentes entre le culte 1 et le culte 2.
-  answer(ctx, mla.community.id, c1.id, m("maelys.fontaine@exemple.test"), "disponible");
-  answer(
-    ctx,
-    mla.community.id,
+  repond(c1.id, "maelys.fontaine@exemple.test", "disponible");
+  repond(
     c2.id,
-    m("maelys.fontaine@exemple.test"),
+    "maelys.fontaine@exemple.test",
     "indisponible",
     "Engagement familial a midi.",
   );
   for (const session of [c3, c4]) {
-    answer(ctx, mla.community.id, session.id, m("maelys.fontaine@exemple.test"), "disponible");
+    repond(session.id, "maelys.fontaine@exemple.test", "disponible");
   }
 
   for (const email of [
@@ -743,44 +885,41 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
     "liora.mendy@exemple.test",
   ]) {
     for (const session of published.sessions) {
-      answer(ctx, mla.community.id, session.id, m(email), "disponible");
+      repond(session.id, email, "disponible");
     }
   }
   for (const email of ["soline.carvalho@exemple.test", "ruben.dossou@exemple.test"]) {
     for (const session of [c3, c4]) {
-      answer(ctx, mla.community.id, session.id, m(email), "disponible");
+      repond(session.id, email, "disponible");
     }
   }
   // Camille est indisponible avec un motif prive.
   for (const session of published.sessions) {
-    answer(
-      ctx,
-      mla.community.id,
+    repond(
       session.id,
-      m("camille.aubriot@exemple.test"),
+      "camille.aubriot@exemple.test",
       "indisponible",
       "Deplacement professionnel ce week-end.",
     );
   }
   // Gaspard ne repond que sur l'apres-midi : il sonorise le matin.
   for (const session of [c3, c4]) {
-    answer(ctx, mla.community.id, session.id, m("gaspard.nguema@exemple.test"), "disponible");
+    repond(session.id, "gaspard.nguema@exemple.test", "disponible");
   }
 
-  const plan = (sessionId: Id, teamId: Id) =>
-    published.planIds.get(`${sessionId}:${teamId}`)!;
+  const plan = published.plan;
 
   // Culte 1 : Equipe 1. Le LEAD change entre le culte 1 et le culte 2.
   assign(ctx, {
     communityId: mla.community.id,
-    planId: plan(c1.id, equipe1.id),
+    planId: plan(c1.id, "Equipe 1"),
     slotLabel: "LEAD",
     membershipId: m("noa.bertrand@exemple.test"),
     state: "confirmee",
   });
   assign(ctx, {
     communityId: mla.community.id,
-    planId: plan(c2.id, equipe1.id),
+    planId: plan(c2.id, "Equipe 1"),
     slotLabel: "LEAD",
     membershipId: m("ines.valadier@exemple.test"),
     state: "a_confirmer",
@@ -788,21 +927,21 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
   for (const session of [c1, c2]) {
     assign(ctx, {
       communityId: mla.community.id,
-      planId: plan(session.id, equipe1.id),
+      planId: plan(session.id, "Equipe 1"),
       slotLabel: "Piano",
       membershipId: m("elias.marchand@exemple.test"),
       state: "confirmee",
     });
     assign(ctx, {
       communityId: mla.community.id,
-      planId: plan(session.id, equipe1.id),
+      planId: plan(session.id, "Equipe 1"),
       slotLabel: "Basse",
       membershipId: m("tobias.reverdy@exemple.test"),
       state: "confirmee",
     });
     assign(ctx, {
       communityId: mla.community.id,
-      planId: plan(session.id, equipe1.id),
+      planId: plan(session.id, "Equipe 1"),
       slotLabel: "Tenor",
       membershipId: m("liora.mendy@exemple.test"),
       state: "a_confirmer",
@@ -811,14 +950,14 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
   // Maelys tient l'alto au culte 1 et un pupitre double precise.
   assign(ctx, {
     communityId: mla.community.id,
-    planId: plan(c1.id, equipe1.id),
+    planId: plan(c1.id, "Equipe 1"),
     slotLabel: "Alto",
     membershipId: m("maelys.fontaine@exemple.test"),
     state: "confirmee",
   });
   assign(ctx, {
     communityId: mla.community.id,
-    planId: plan(c1.id, equipe1.id),
+    planId: plan(c1.id, "Equipe 1"),
     slotLabel: "Pupitre double",
     membershipId: m("soline.carvalho@exemple.test"),
     detail: "soprano",
@@ -827,7 +966,7 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
   // Un remplacement a prevoir sur le culte 2.
   assign(ctx, {
     communityId: mla.community.id,
-    planId: plan(c2.id, equipe1.id),
+    planId: plan(c2.id, "Equipe 1"),
     slotLabel: "Alto",
     membershipId: m("maelys.fontaine@exemple.test"),
     state: "a_remplacer",
@@ -837,28 +976,28 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
   for (const session of [c3, c4]) {
     assign(ctx, {
       communityId: mla.community.id,
-      planId: plan(session.id, equipe2.id),
+      planId: plan(session.id, "Equipe 2"),
       slotLabel: "LEAD",
       membershipId: m("ines.valadier@exemple.test"),
       state: "confirmee",
     });
     assign(ctx, {
       communityId: mla.community.id,
-      planId: plan(session.id, equipe2.id),
+      planId: plan(session.id, "Equipe 2"),
       slotLabel: "Piano",
       membershipId: m("gaspard.nguema@exemple.test"),
       state: "a_confirmer",
     });
     assign(ctx, {
       communityId: mla.community.id,
-      planId: plan(session.id, equipe2.id),
+      planId: plan(session.id, "Equipe 2"),
       slotLabel: "Batterie",
       membershipId: m("ruben.dossou@exemple.test"),
       state: "confirmee",
     });
     assign(ctx, {
       communityId: mla.community.id,
-      planId: plan(session.id, equipe2.id),
+      planId: plan(session.id, "Equipe 2"),
       slotLabel: "Soprano",
       membershipId: m("soline.carvalho@exemple.test"),
       state: "confirmee",
@@ -901,7 +1040,7 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
     id: newId(),
     communityId: mla.community.id,
     eventId: published.event.id,
-    teamId: equipe2.id,
+    teamId: published.teams.find((t) => t.name === "Equipe 2")!.id,
     theme: "Automne sobre",
     mood: "Chaleureux et simple",
     colors: ["#1F2A44", "#E8DCC8"],
@@ -937,93 +1076,100 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
   // 2. Dimanche suivant, en collecte, avec une repetition qui passe minuit.
   const collecting = addEvent(ctx, {
     communityId: mla.community.id,
-    title: "Cultes du dimanche 25 octobre",
+    title: `Cultes du dimanche ${libelleJour(dates.collecte)}`,
     description:
       "Collecte des disponibilites ouverte. La repetition du vendredi se termine apres minuit.",
     state: "collecte",
     createdByEmail: "noa.bertrand@exemple.test",
-    sessions: sundaySessions("2026-10-25"),
-    teamIds: [equipe1.id, equipe2.id],
-    deadline: { date: "2026-10-22", time: "20:00" },
+    sessions: sundaySessions(dates.collecte),
+    teams: [
+      { name: "Equipe 1", memberIds: EQUIPE_1, sessionOrdinals: [1, 2] },
+      { name: "Equipe 2", memberIds: EQUIPE_2, sessionOrdinals: [3, 4] },
+    ],
+    deadline: { date: dates.limiteReponse, time: "20:00" },
     rehearsals: [
       {
         label: "Repetition de nuit",
-        startDate: "2026-10-23",
+        startDate: dates.repetitionNuit,
         start: "22:00",
-        endDate: "2026-10-24",
+        endDate: dates.repetitionNuitFin,
         end: "00:30",
         location: "Studio Hyacinthe",
         address: "12 rue de la Repetition, 92800 Puteaux",
         room: "Studio 1",
-        teamIds: [equipe1.id],
+        teamNames: ["Equipe 1"],
       },
       {
         label: "Repetition du changement d'heure",
-        startDate: "2026-10-24",
+        startDate: dates.changementHeure,
         start: "23:00",
-        endDate: "2026-10-25",
+        endDate: dates.changementHeureFin,
         end: "01:30",
         location: "Studio Hyacinthe",
         address: "12 rue de la Repetition, 92800 Puteaux",
         room: "Studio 3",
-        teamIds: [equipe2.id],
+        teamNames: ["Equipe 2"],
       },
     ],
   });
   answer(
     ctx,
     mla.community.id,
+    collecting.event.id,
     collecting.sessions[0]!.id,
     m("noa.bertrand@exemple.test"),
     "disponible",
   );
 
-  // 3. Culte EJP, equipe EJP, un seul creneau.
+  // 3. Culte EJP : un seul sous-evenement, horaire encore provisoire.
   addEvent(ctx, {
     communityId: mla.community.id,
-    title: "Culte EJP 25 octobre",
+    title: `Culte EJP ${libelleJour(dates.collecte)}`,
     description: "Culte des jeunes. Horaire a confirmer par le pole jeunesse.",
     state: "collecte",
     createdByEmail: "ines.valadier@exemple.test",
     sessions: [
       {
         label: "Culte EJP",
-        date: "2026-10-25",
+        date: dates.collecte,
         start: "16:00",
         end: "18:00",
         location: "Salle jeunesse",
         provisional: true,
       },
     ],
-    teamIds: [ejp.id],
+    teams: [{ name: "EJP", memberIds: EQUIPE_EJP }],
   });
 
-  // 4. Brouillon : invisible pour les membres.
+  // 4. Brouillon sans sous-evenement : l'evenement porte lui-meme son
+  // horaire, et l'equipe couvre toute sa duree.
   addEvent(ctx, {
     communityId: mla.community.id,
     title: "Soiree speciale anniversaire (brouillon)",
-    description: "En preparation. Visible des admins uniquement.",
+    description:
+      "En preparation. Un seul bloc, sans sous-evenement. Visible des admins uniquement.",
     state: "brouillon",
     createdByEmail: "noa.bertrand@exemple.test",
-    sessions: [
-      { label: "Soiree", date: "2026-11-21", start: "18:00", end: "21:30" },
-    ],
-    teamIds: [equipe1.id],
+    date: dates.anniversaire,
+    start: "18:00",
+    end: "21:30",
+    location: "Salle des fetes",
+    teams: [{ name: "Groupe louange du soir", memberIds: EQUIPE_1 }],
   });
 
   // 5. Evenement archive : historique en lecture seule.
   const archived = addEvent(ctx, {
     communityId: mla.community.id,
-    title: "Cultes du dimanche 4 octobre",
+    title: `Cultes du dimanche ${libelleJour(dates.archive)}`,
     description: "Archive. Conserve pour l'historique.",
     state: "archive",
     createdByEmail: "noa.bertrand@exemple.test",
-    sessions: sundaySessions("2026-10-04"),
-    teamIds: [equipe1.id],
+    sessions: sundaySessions(dates.archive),
+    teams: [{ name: "Equipe 1", memberIds: EQUIPE_1, sessionOrdinals: [1] }],
   });
   assign(ctx, {
     communityId: mla.community.id,
-    planId: archived.planIds.get(`${archived.sessions[0]!.id}:${equipe1.id}`)!,
+    planId: archived.plan(archived.sessions[0]!.id, "Equipe 1"),
     slotLabel: "LEAD",
     membershipId: m("noa.bertrand@exemple.test"),
     state: "confirmee",
@@ -1035,30 +1181,28 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
 
   const accueilEvent = addEvent(ctx, {
     communityId: accueil.community.id,
-    title: "Accueil du dimanche 18 octobre",
+    title: `Accueil du dimanche ${libelleJour(dates.publie)}`,
     description: "Quatre postes Star. Donnees fictives.",
     state: "publie",
     createdByEmail: "sarah.lemoine@exemple.test",
     sessions: [
-      { label: "Culte 1", date: "2026-10-18", start: "08:30", end: "11:00" },
-      { label: "Culte 2", date: "2026-10-18", start: "10:30", end: "13:00" },
+      { label: "Culte 1", date: dates.publie, start: "08:30", end: "11:00" },
+      { label: "Culte 2", date: dates.publie, start: "10:30", end: "13:00" },
     ],
-    teamIds: [accueil.teams[0]!.id],
+    teams: [
+      { name: "Equipe d'accueil", memberIds: [accueilAdmin.id, accueilMember.id] },
+    ],
   });
   assign(ctx, {
     communityId: accueil.community.id,
-    planId: accueilEvent.planIds.get(
-      `${accueilEvent.sessions[0]!.id}:${accueil.teams[0]!.id}`,
-    )!,
+    planId: accueilEvent.plan(accueilEvent.sessions[0]!.id, "Equipe d'accueil"),
     slotLabel: "Star 1",
     membershipId: accueilAdmin.id,
     state: "confirmee",
   });
   assign(ctx, {
     communityId: accueil.community.id,
-    planId: accueilEvent.planIds.get(
-      `${accueilEvent.sessions[0]!.id}:${accueil.teams[0]!.id}`,
-    )!,
+    planId: accueilEvent.plan(accueilEvent.sessions[0]!.id, "Equipe d'accueil"),
     slotLabel: "Star 2",
     membershipId: accueilMember.id,
     state: "a_confirmer",
@@ -1067,29 +1211,25 @@ export async function buildSeedSnapshot(): Promise<Snapshot> {
   // Sonorisation : chevauche le culte 1 du MLA, pour Gaspard.
   const sonoEvent = addEvent(ctx, {
     communityId: sono.community.id,
-    title: "Son du dimanche 18 octobre",
+    title: `Son du dimanche ${libelleJour(dates.publie)}`,
     description: "Facade et retours. Donnees fictives.",
     state: "publie",
     createdByEmail: "victor.pelletier@exemple.test",
     sessions: [
-      { label: "Culte 1", date: "2026-10-18", start: "08:45", end: "11:00" },
+      { label: "Culte 1", date: dates.publie, start: "08:45", end: "11:00" },
     ],
-    teamIds: [sono.teams[0]!.id],
+    teams: [{ name: "Equipe son", memberIds: [sonoAdmin.id, sonoGaspard.id] }],
   });
   assign(ctx, {
     communityId: sono.community.id,
-    planId: sonoEvent.planIds.get(
-      `${sonoEvent.sessions[0]!.id}:${sono.teams[0]!.id}`,
-    )!,
+    planId: sonoEvent.plan(sonoEvent.sessions[0]!.id, "Equipe son"),
     slotLabel: "Star 1",
     membershipId: sonoGaspard.id,
     state: "confirmee",
   });
   assign(ctx, {
     communityId: sono.community.id,
-    planId: sonoEvent.planIds.get(
-      `${sonoEvent.sessions[0]!.id}:${sono.teams[0]!.id}`,
-    )!,
+    planId: sonoEvent.plan(sonoEvent.sessions[0]!.id, "Equipe son"),
     slotLabel: "Star 2",
     membershipId: sonoAdmin.id,
     state: "confirmee",

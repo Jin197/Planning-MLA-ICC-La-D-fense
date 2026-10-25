@@ -83,7 +83,9 @@ export async function archiveSong(
 }
 
 export interface SetlistEntryInput {
-  sessionId: Id;
+  eventId: Id;
+  /** null = liste commune a l'evenement, qui n'a pas de sous-evenement. */
+  sessionId: Id | null;
   sequence: string;
   songId?: Id | null;
   freeTitle?: string | null;
@@ -97,12 +99,18 @@ export async function addSetlistItem(
 ): Promise<Result<{ id: Id }>> {
   const adapter = getDataAdapter();
   return adapter.transaction(async (tx) => {
-    const session = await tx.selectOne("event_sessions", {
-      where: { id: input.sessionId, communityId },
+    const event = await tx.selectOne("events", {
+      where: { id: input.eventId, communityId },
     });
-    if (!session) return err("creneau_inconnu", "Creneau introuvable.");
-    const event = await tx.selectOne("events", { where: { id: session.eventId } });
     if (!event) return err("evenement_inconnu", "Evenement introuvable.");
+    if (input.sessionId !== null) {
+      const session = await tx.selectOne("event_sessions", {
+        where: { id: input.sessionId, eventId: event.id },
+      });
+      if (!session) {
+        return err("sous_evenement_inconnu", "Sous-evenement introuvable.");
+      }
+    }
     await requireCommunityAction(communityId, "evenement.modifier", {
       eventState: event.state,
     });
@@ -111,14 +119,14 @@ export async function addSetlistItem(
       return err("chant_requis", "Choisissez un chant ou saisissez un titre.");
     }
 
-    const existing = await tx.select("setlist_items", {
-      where: { sessionId: input.sessionId },
-    });
+    const existing = (
+      await tx.select("setlist_items", { where: { eventId: event.id } })
+    ).filter((i) => i.sessionId === input.sessionId);
     const id = newId();
     await tx.insert("setlist_items", {
       id,
       communityId,
-      eventId: session.eventId,
+      eventId: event.id,
       sessionId: input.sessionId,
       sequence: input.sequence.trim() || `Chant ${existing.length + 1}`,
       order: existing.length + 1,
@@ -155,8 +163,10 @@ export async function moveSetlistItem(
     });
 
     const fratrie = (
-      await tx.select("setlist_items", { where: { sessionId: item.sessionId } })
-    ).sort((a, b) => a.order - b.order);
+      await tx.select("setlist_items", { where: { eventId: item.eventId } })
+    )
+      .filter((i) => i.sessionId === item.sessionId)
+      .sort((a, b) => a.order - b.order);
 
     const position = fratrie.findIndex((i) => i.id === itemId);
     const cible = direction === "haut" ? position - 1 : position + 1;
@@ -205,38 +215,44 @@ export async function removeSetlistItem(
 }
 
 /**
- * Copie la liste d'un creneau vers un autre. Le partage est explicite : les
- * deux listes deviennent independantes et peuvent etre adaptees.
+ * Copie la liste d'une occurrence vers une autre, dans le meme evenement.
+ * Le partage est explicite : les deux listes deviennent independantes et
+ * peuvent etre adaptees. `null` designe l'evenement lui-meme.
  */
 export async function copySetlist(
   communityId: Id,
-  fromSessionId: Id,
-  toSessionId: Id,
+  eventId: Id,
+  cibles: { source: Id | null; cible: Id | null },
 ): Promise<Result<{ copied: number }>> {
   const adapter = getDataAdapter();
   return adapter.transaction(async (tx) => {
-    const from = await tx.selectOne("event_sessions", {
-      where: { id: fromSessionId, communityId },
+    const event = await tx.selectOne("events", {
+      where: { id: eventId, communityId },
     });
-    const to = await tx.selectOne("event_sessions", {
-      where: { id: toSessionId, communityId },
-    });
-    if (!from || !to) return err("creneau_inconnu", "Creneau introuvable.");
-    const event = await tx.selectOne("events", { where: { id: to.eventId } });
     if (!event) return err("evenement_inconnu", "Evenement introuvable.");
+    if (cibles.source === cibles.cible) {
+      return err("meme_occurrence", "Choisissez deux occurrences differentes.");
+    }
+    const sessions = await tx.select("event_sessions", { where: { eventId } });
+    for (const id of [cibles.source, cibles.cible]) {
+      if (id !== null && !sessions.some((s) => s.id === id)) {
+        return err("sous_evenement_inconnu", "Sous-evenement introuvable.");
+      }
+    }
     await requireCommunityAction(communityId, "evenement.modifier", {
       eventState: event.state,
     });
 
-    const items = await tx.select("setlist_items", {
-      where: { sessionId: fromSessionId },
-    });
-    await tx.removeWhere("setlist_items", { sessionId: toSessionId });
+    const tous = await tx.select("setlist_items", { where: { eventId } });
+    const items = tous.filter((i) => i.sessionId === cibles.source);
+    for (const existant of tous.filter((i) => i.sessionId === cibles.cible)) {
+      await tx.remove("setlist_items", existant.id);
+    }
     const copies: SetlistItem[] = items.map((i) => ({
       ...i,
       id: newId(),
-      eventId: to.eventId,
-      sessionId: toSessionId,
+      eventId,
+      sessionId: cibles.cible,
     }));
     await tx.insertMany("setlist_items", copies);
     return ok({ copied: copies.length });

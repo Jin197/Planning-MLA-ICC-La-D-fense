@@ -117,18 +117,29 @@ export async function joinAsMember(
 
 export interface EventFixture {
   eventId: Id;
+  /** Vide quand l'evenement n'a pas de sous-evenement. */
   sessionIds: Id[];
   teamId: Id;
   planIds: Id[];
   slotIdsByLabel: Map<string, Id>;
 }
 
+/**
+ * Evenement de test avec une equipe et sa feuille de postes.
+ *
+ * `sessions: []` cree un evenement sans sous-evenement : l'equipe est alors
+ * rattachee a toute sa duree, et les reponses portent sur l'evenement.
+ */
 export async function createEventWithPlan(
   communityId: Id,
   createdBy: Id,
   options: {
     state?: "brouillon" | "collecte" | "publie";
     sessions?: { label: string; startsAt: string; endsAt: string; provisional?: boolean }[];
+    /** Horaire propre de l'evenement. */
+    startsAt?: string;
+    endsAt?: string;
+    provisional?: boolean;
   } = {},
 ): Promise<EventFixture> {
   const sessions =
@@ -156,6 +167,17 @@ export async function createEventWithPlan(
       description: "",
       state: options.state ?? "collecte",
       timezone: "Europe/Paris",
+      startsAt:
+        options.startsAt ??
+        sessions[0]?.startsAt ??
+        "2026-10-18T07:00:00.000Z",
+      endsAt:
+        options.endsAt ??
+        sessions[sessions.length - 1]?.endsAt ??
+        "2026-10-18T10:45:00.000Z",
+      locationName: "Salle test",
+      locationAddress: "",
+      scheduleProvisional: options.provisional ?? false,
       version: 1,
       publishedVersion: 0,
       responseDeadline: null,
@@ -186,7 +208,16 @@ export async function createEventWithPlan(
       sessionIds.push(id);
     }
 
-    const team = (await t.select("teams", { where: { communityId } }))[0]!;
+    // L'equipe appartient a l'evenement : elle est creee avec lui.
+    const teamId = newId();
+    await t.insert("event_teams", {
+      id: teamId,
+      communityId,
+      eventId,
+      name: "Equipe de test",
+      order: 1,
+    });
+
     const template = await t.selectOne("planning_templates", { where: { communityId } });
     const fields = await t.select("template_fields", {
       where: { templateId: template!.id },
@@ -194,14 +225,16 @@ export async function createEventWithPlan(
 
     const planIds: Id[] = [];
     const slotIdsByLabel = new Map<string, Id>();
-    for (const sessionId of sessionIds) {
+    // Sans sous-evenement, un seul plan rattache a toute la duree.
+    const cibles: (Id | null)[] = sessionIds.length > 0 ? sessionIds : [null];
+    for (const sessionId of cibles) {
       const planId = newId();
       await t.insert("event_plans", {
         id: planId,
         communityId,
         eventId,
         sessionId,
-        teamId: team.id,
+        teamId,
         templateVersion: template!.version,
         createdAt: at,
       });
@@ -225,6 +258,6 @@ export async function createEventWithPlan(
       }
     }
 
-    return { eventId, sessionIds, teamId: team.id, planIds, slotIdsByLabel };
+    return { eventId, sessionIds, teamId, planIds, slotIdsByLabel };
   });
 }

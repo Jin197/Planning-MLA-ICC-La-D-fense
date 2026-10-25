@@ -2,6 +2,7 @@ import type {
   AccountSecret,
   Assignment,
   AuditLog,
+  Availability,
   AvailabilityReason,
   Community,
   CommunityMembership,
@@ -12,6 +13,8 @@ import type {
   EventPlan,
   EventRoleSlot,
   EventSession,
+  EventTeam,
+  EventTeamMember,
   ImportJob,
   ImportRow,
   ImportedPerson,
@@ -27,12 +30,9 @@ import type {
   RehearsalAvailability,
   RehearsalAvailabilityReason,
   RehearsalTeam,
-  SessionAvailability,
   SetlistItem,
   Skill,
   Song,
-  Team,
-  TeamMembership,
   TemplateField,
 } from "@/domain/types";
 
@@ -53,16 +53,16 @@ export interface Tables {
   join_requests: JoinRequest;
   skills: Skill;
   membership_skills: MembershipSkill;
-  teams: Team;
-  team_memberships: TeamMembership;
   planning_templates: PlanningTemplate;
   template_fields: TemplateField;
   events: Event;
   event_sessions: EventSession;
+  event_teams: EventTeam;
+  event_team_members: EventTeamMember;
   event_plans: EventPlan;
   event_role_slots: EventRoleSlot;
   assignments: Assignment;
-  session_availabilities: SessionAvailability;
+  availabilities: Availability;
   availability_reasons: AvailabilityReason;
   rehearsals: Rehearsal;
   rehearsal_teams: RehearsalTeam;
@@ -94,16 +94,16 @@ export const PRIMARY_KEYS: { [K in TableName]: keyof Tables[K] & string } = {
   join_requests: "id",
   skills: "id",
   membership_skills: "id",
-  teams: "id",
-  team_memberships: "id",
   planning_templates: "id",
   template_fields: "id",
   events: "id",
   event_sessions: "id",
+  event_teams: "id",
+  event_team_members: "id",
   event_plans: "id",
   event_role_slots: "id",
   assignments: "id",
-  session_availabilities: "id",
+  availabilities: "id",
   availability_reasons: "id",
   rehearsals: "id",
   rehearsal_teams: "id",

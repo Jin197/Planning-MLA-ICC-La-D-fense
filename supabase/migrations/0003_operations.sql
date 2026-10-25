@@ -225,10 +225,9 @@ begin
 
   new_template := diapason_seed_template(new_community, kind);
 
-  -- Equipes et competences de depart.
+  -- Competences de depart. Les equipes, elles, se creent dans chaque
+  -- evenement : une communaute n'en a pas d'avance.
   if kind = 'MLA' then
-    insert into teams (community_id, name, "order")
-    values (new_community, 'Equipe 1', 1), (new_community, 'Equipe 2', 2);
     insert into skills (community_id, label)
     select new_community, label
     from unnest(array[
@@ -236,8 +235,6 @@ begin
       'Piano', 'Batterie', 'Basse', 'Guitare'
     ]) as label;
   else
-    insert into teams (community_id, name, "order")
-    values (new_community, 'Equipe 1', 1);
     insert into skills (community_id, label)
     select new_community, label
     from unnest(array['Accueil', 'Orientation', 'Technique']) as label;
@@ -484,8 +481,12 @@ begin
       and exists (
         select 1
         from event_plans p
-        join event_sessions s on s.id = p.session_id
-        where p.id = a.plan_id and s.starts_at > now()
+        join events e on e.id = p.event_id
+        -- Un plan rattache a tout l'evenement n'a pas de sous-evenement :
+        -- c'est alors l'horaire de l'evenement qui dit s'il est a venir.
+        left join event_sessions s on s.id = p.session_id
+        where p.id = a.plan_id
+          and coalesce(s.starts_at, e.starts_at) > now()
       )
     returning 1
   )
@@ -537,8 +538,10 @@ as $$
 declare
   cible events;
   creneaux integer;
+  occurrences integer;
   provisoires integer;
-  plans integer;
+  equipes integer;
+  equipes_sans_plan integer;
   postes_incomplets integer;
   non_confirmees integer;
   a_remplacer integer;
@@ -568,21 +571,33 @@ begin
     raise exception 'event_not_publishable: un evenement annule ou archive ne peut pas etre publie';
   end if;
 
+  -- Les sous-evenements sont facultatifs. Un evenement qui n'en a aucun
+  -- compte pour une occurrence : la sienne.
   select count(*) into creneaux from event_sessions where event_sessions.event_id = cible.id;
-  if creneaux = 0 then
-    raise exception 'publication_blocked: l''evenement n''a aucun creneau date';
-  end if;
+  occurrences := greatest(1, creneaux);
 
   select count(*) into provisoires
   from event_sessions s
   where s.event_id = cible.id and s.schedule_provisional;
+  if creneaux = 0 and cible.schedule_provisional then
+    provisoires := 1;
+  end if;
   if provisoires > 0 then
-    raise exception 'publication_blocked: horaire a definir sur % creneau(x)', provisoires;
+    raise exception 'publication_blocked: horaire a definir sur % occurrence(s)', provisoires;
   end if;
 
-  select count(*) into plans from event_plans where event_plans.event_id = cible.id;
-  if plans = 0 then
-    raise exception 'publication_blocked: aucun plan d''equipe prepare';
+  select count(*) into equipes from event_teams where event_teams.event_id = cible.id;
+  if equipes = 0 then
+    raise exception 'publication_blocked: aucune equipe creee dans cet evenement';
+  end if;
+
+  -- Une equipe sans rattachement ne sait pas quand elle sert.
+  select count(*) into equipes_sans_plan
+  from event_teams t
+  where t.event_id = cible.id
+    and not exists (select 1 from event_plans p where p.team_id = t.id);
+  if equipes_sans_plan > 0 then
+    raise exception 'publication_blocked: % equipe(s) sans rattachement', equipes_sans_plan;
   end if;
 
   -- Un poste desactive ou a minimum zero n'est jamais « incomplet ».
@@ -612,11 +627,11 @@ begin
   where m.community_id = cible.community_id and m.status = 'active';
 
   select count(*) into reponses
-  from session_availabilities av
-  join event_sessions s on s.id = av.session_id
-  where s.event_id = cible.id;
+  from availabilities av
+  where av.event_id = cible.id
+    and (av.session_id is null) = (creneaux = 0);
 
-  reponses_manquantes := greatest(0, creneaux * membres_actifs - reponses);
+  reponses_manquantes := greatest(0, occurrences * membres_actifs - reponses);
 
   if not accept_exceptions and (
     postes_incomplets > 0 or non_confirmees > 0 or a_remplacer > 0

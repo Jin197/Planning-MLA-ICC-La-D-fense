@@ -12,7 +12,8 @@ import {
 import { EditeurListeChants } from "./editeur-chants";
 
 /**
- * Chants : liste ordonnee par creneau. Les liens s'ouvrent clairement comme
+ * Chants : une liste ordonnee par occurrence — par sous-evenement, ou pour
+ * l'evenement seul s'il n'en a pas. Les liens s'ouvrent clairement comme
  * ressources externes ; rien n'est telecharge et aucune parole n'est recopiee.
  */
 export function OngletChants({
@@ -28,21 +29,27 @@ export function OngletChants({
 
   return (
     <div className="space-y-6">
-      {vue.sessions.map(({ session, setlist }) => (
-        <Card key={session.id}>
+      {vue.occurrences.map((occurrence) => (
+        <Card key={occurrence.sessionId ?? "evenement"}>
           <CardHeader
-            titre={`Chants - ${session.label}`}
-            actions={<Badge ton="neutre">{setlist.length} element(s)</Badge>}
+            titre={
+              occurrence.sessionId === null
+                ? "Chants"
+                : `Chants - ${occurrence.label}`
+            }
+            actions={
+              <Badge ton="neutre">{occurrence.setlist.length} element(s)</Badge>
+            }
           />
           <CardBody className="space-y-4">
-            {setlist.length === 0 ? (
+            {occurrence.setlist.length === 0 ? (
               <EtatVide
-                titre="Aucun chant pour ce creneau"
+                titre="Aucun chant pour l'instant"
                 description="Les sequences habituelles sont Chant 1, Chant 2, Chant 3, Sainte Cene et Offrandes."
               />
             ) : (
               <ol className="space-y-2">
-                {setlist.map((item) => {
+                {occurrence.setlist.map((item) => {
                   const chant = item.songId ? chantById.get(item.songId) : undefined;
                   const liens = [...item.links, ...(chant?.links ?? [])];
                   return (
@@ -113,21 +120,23 @@ export function OngletChants({
                 mode="ajouter"
                 communityId={communityId}
                 eventId={vue.event.id}
-                sessionId={session.id}
+                sessionId={occurrence.sessionId}
                 chants={chants}
-                autresCreneaux={vue.sessions
-                  .filter((s) => s.session.id !== session.id)
-                  .map((s) => ({ id: s.session.id, label: s.session.label }))}
+                autresCreneaux={vue.occurrences
+                  .filter((o) => o.sessionId !== occurrence.sessionId)
+                  .map((o) => ({ id: o.sessionId, label: o.label }))}
               />
             ) : null}
           </CardBody>
         </Card>
       ))}
 
-      <Alerte ton="info" titre="Partage entre creneaux">
-        Une liste peut etre copiee d&apos;un creneau vers un autre. La copie est
-        explicite : les deux listes restent ensuite independantes.
-      </Alerte>
+      {vue.occurrences.length > 1 ? (
+        <Alerte ton="info" titre="Partage entre sous-evenements">
+          Une liste peut etre copiee d&apos;un sous-evenement vers un autre. La
+          copie est explicite : les deux listes restent ensuite independantes.
+        </Alerte>
+      ) : null}
     </div>
   );
 }

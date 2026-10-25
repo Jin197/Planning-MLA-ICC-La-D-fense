@@ -1,5 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { communauteMla, urlEvenement, urlPlanning } from "./donnees";
+import {
+  communauteMla,
+  evenementBrouillon,
+  evenementEnCollecte,
+  evenementPublie,
+  urlEvenement,
+  urlPlanning,
+} from "./donnees";
 
 /**
  * Parcours au navigateur. Ils verifient ce que les tests de service ne
@@ -68,25 +75,29 @@ test.describe("parcours membre", () => {
       page.getByRole("heading", { name: /Disponibilites a renseigner/i }),
     ).toBeVisible();
 
-    // Interaction 1 : ouvrir l'evenement en collecte.
-    await page
-      .getByRole("link", { name: /Cultes du dimanche 25 octobre/ })
-      .first()
-      .click();
+    /*
+     * Interaction 1 : ouvrir l'evenement en collecte.
+     *
+     * On y va par son URL et non par un lien de l'accueil : l'accueil ne
+     * liste que les occurrences encore a venir, et les dates du jeu de
+     * demonstration sont fixes. Le test porterait sinon sur l'age du jeu de
+     * donnees autant que sur le parcours.
+     */
+    await page.goto(urlEvenement(evenementEnCollecte()));
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      "Cultes du dimanche 25 octobre",
+      evenementEnCollecte(),
     );
 
-    // Interaction 2 : repondre pour tous les creneaux preselectionnes.
+    // Interaction 2 : repondre pour tous les sous-evenements preselectionnes.
     await cliquerApresHydratation(
       page.getByRole("button", { name: "Je suis disponible" }),
-      page.getByText(/Reponse enregistree pour \d+ creneau/),
+      page.getByText(/Reponse enregistree \(\d+\)/),
     );
   });
 
   test("modifie son propre message, et seulement le sien", async ({ page }) => {
     await connexion(page, "liora.mendy@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 18 octobre", "discussion"));
+    await page.goto(urlEvenement(evenementPublie(), "discussion"));
 
     // Un seul message est le sien : un seul bouton de modification existe.
     const boutons = page.getByRole("button", { name: "Modifier mon message" });
@@ -108,13 +119,13 @@ test.describe("parcours membre", () => {
 
   test("ne voit pas le plan d'un evenement en collecte", async ({ page }) => {
     await connexion(page, "elias.marchand@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 25 octobre", "creneaux"));
+    await page.goto(urlEvenement(evenementEnCollecte(), "equipes"));
     await expect(page.getByText(/Plan non encore publie/)).toBeVisible();
   });
 
   test("voit le plan une fois le planning publie", async ({ page }) => {
     await connexion(page, "elias.marchand@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 18 octobre", "creneaux"));
+    await page.goto(urlEvenement(evenementPublie(), "equipes"));
     await expect(page.getByRole("heading", { name: "Culte 1" })).toBeVisible();
     await expect(page.getByText("LEAD").first()).toBeVisible();
   });
@@ -123,7 +134,7 @@ test.describe("parcours membre", () => {
     await connexion(page, "elias.marchand@exemple.test");
     await page.goto(urlPlanning());
     await expect(page.getByRole("heading", { name: "Planning" })).toBeVisible();
-    await expect(page.getByText(/Soiree speciale anniversaire/)).toHaveCount(0);
+    await expect(page.getByText(evenementBrouillon())).toHaveCount(0);
   });
 
   test("n'a aucun outil d'administration", async ({ page }) => {
@@ -146,7 +157,7 @@ test.describe("parcours membre", () => {
 
   test("confirme une affectation recue", async ({ page }) => {
     await connexion(page, "liora.mendy@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 18 octobre"));
+    await page.goto(urlEvenement(evenementPublie()));
     await expect(page.getByRole("heading", { name: "Mes affectations" })).toBeVisible();
     await cliquerApresHydratation(
       page.getByRole("button", { name: "Je confirme" }).first(),
@@ -191,7 +202,7 @@ test.describe("parcours admin", () => {
 
   test("voit les controles avant publication", async ({ page }) => {
     await connexion(page, "noa.bertrand@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 25 octobre"));
+    await page.goto(urlEvenement(evenementEnCollecte()));
     await expect(page.getByRole("heading", { name: "Avant publication" })).toBeVisible();
     await expect(
       page
@@ -204,7 +215,7 @@ test.describe("parcours admin", () => {
     page,
   }) => {
     await connexion(page, "noa.bertrand@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 18 octobre", "creneaux"));
+    await page.goto(urlEvenement(evenementPublie(), "equipes"));
 
     await cliquerApresHydratation(
       page.getByRole("button", { name: /Affecter sur « Guitare »/ }).first(),
@@ -219,7 +230,7 @@ test.describe("parcours admin", () => {
 
   test("reordonne la liste de chants au clavier et par boutons", async ({ page }) => {
     await connexion(page, "noa.bertrand@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 18 octobre", "chants"));
+    await page.goto(urlEvenement(evenementPublie(), "chants"));
 
     const sequences = page.locator("ol > li").filter({ hasText: /Chant|Sainte|Offrandes/ });
     await expect(sequences.first()).toContainText("Chant 1");
@@ -239,7 +250,7 @@ test.describe("parcours admin", () => {
 
   test("corrige la description sans remettre les reponses a zero", async ({ page }) => {
     await connexion(page, "noa.bertrand@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 18 octobre"));
+    await page.goto(urlEvenement(evenementPublie()));
 
     await cliquerApresHydratation(
       page.getByRole("button", { name: "Modifier" }).first(),
@@ -255,7 +266,7 @@ test.describe("parcours admin", () => {
 
   test("refuse un visuel de moodboard sans texte alternatif", async ({ page }) => {
     await connexion(page, "noa.bertrand@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 18 octobre", "dress-code"));
+    await page.goto(urlEvenement(evenementPublie(), "dress-code"));
     await expect(page.getByRole("heading", { name: "Moodboard" })).toBeVisible();
 
     // Le champ de texte alternatif est obligatoire : le formulaire ne part pas.
@@ -264,23 +275,58 @@ test.describe("parcours admin", () => {
     await expect(alt).toHaveAttribute("required", "");
   });
 
-  test("peut ajouter un creneau a un evenement existant", async ({ page }) => {
+  test("peut ajouter un sous-evenement a un evenement existant", async ({ page }) => {
     await connexion(page, "noa.bertrand@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 25 octobre", "creneaux"));
+    await page.goto(urlEvenement(evenementEnCollecte(), "equipes"));
 
     await cliquerApresHydratation(
-      page.getByRole("button", { name: "Completer" }).first(),
-      page.getByRole("heading", { name: "Nouveau creneau" }),
+      page.getByRole("button", { name: "Ajouter" }).first(),
+      page.getByLabel("Libelle"),
     );
 
     await page.getByLabel("Libelle").first().fill("Atelier");
     await page.getByLabel("Date de debut").first().fill("2026-10-25");
     await page.getByLabel("Heure de debut").first().fill("19:00");
     await page.getByLabel("Heure de fin").first().fill("20:30");
-    await page.getByRole("button", { name: "Ajouter ce creneau" }).click();
+    await page.getByRole("button", { name: "Ajouter ce sous-evenement" }).click();
 
-    await expect(page.getByText(/Creneau ajoute, avec les postes du modele/)).toBeVisible();
+    await expect(page.getByText(/Sous-evenement ajoute/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Atelier" })).toBeVisible();
+  });
+
+  test("cree une equipe dans l'evenement et la rattache", async ({ page }) => {
+    await connexion(page, "noa.bertrand@exemple.test");
+    await page.goto(urlEvenement(evenementEnCollecte(), "equipes"));
+
+    await cliquerApresHydratation(
+      page.getByRole("button", { name: "Nouvelle equipe" }),
+      page.getByLabel("Nom de l'equipe"),
+    );
+
+    await page.getByLabel("Nom de l'equipe").fill("Pole technique");
+    await page.getByRole("button", { name: "Creer cette equipe" }).click();
+
+    await expect(page.getByText(/Equipe creee dans cet evenement/)).toBeVisible();
+    // Sans sous-evenement coche, elle couvre toute la duree.
+    await expect(
+      page.getByRole("heading", { name: "Pole technique" }).first(),
+    ).toBeVisible();
+    await expect(page.getByText("Toute la duree de l'evenement").first()).toBeVisible();
+  });
+
+  test("repond une seule fois sur un evenement sans sous-evenement", async ({
+    page,
+  }) => {
+    // L'evenement d'anniversaire est en brouillon : seul un admin le voit.
+    await connexion(page, "noa.bertrand@exemple.test");
+    await page.goto(urlEvenement(evenementBrouillon()));
+
+    await expect(page.getByRole("heading", { name: "Quand et ou" })).toBeVisible();
+    await expect(
+      page.getByText(/Cet evenement est d'un seul bloc/),
+    ).toBeVisible();
+    // Aucune case a cocher : il n'y a rien a choisir.
+    await expect(page.getByRole("heading", { name: "Sous-evenements" })).toHaveCount(0);
   });
 
   test("accede aux parametres du modele", async ({ page }) => {
@@ -373,7 +419,7 @@ test.describe("accessibilite et lisibilite", () => {
     page,
   }) => {
     await connexion(page, "noa.bertrand@exemple.test");
-    await page.goto(urlEvenement("Cultes du dimanche 25 octobre", "repetitions"));
+    await page.goto(urlEvenement(evenementEnCollecte(), "repetitions"));
     await expect(page.getByText("Repetition de nuit")).toBeVisible();
     await expect(page.getByText("Se termine le lendemain").first()).toBeVisible();
     await expect(page.getByText("2 h 30").first()).toBeVisible();
@@ -439,7 +485,7 @@ test.describe("apparence", () => {
     await connexion(page, "noa.bertrand@exemple.test");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
-    const cible = urlEvenement("Cultes du dimanche 18 octobre");
+    const cible = urlEvenement(evenementPublie());
     await page.goto(`${cible}/impression`);
 
     const feuille = page.locator(".feuille-impression");

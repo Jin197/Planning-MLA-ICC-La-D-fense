@@ -38,7 +38,7 @@ export function VueTableau({ planning }: { planning: VuePlanning }) {
                 </th>
                 {planning.colonnes.map((colonne) => (
                   <th
-                    key={colonne.sessionId}
+                    key={colonne.cle}
                     scope="col"
                     className="border-b border-bordure px-3 py-2 text-left align-bottom"
                   >
@@ -79,10 +79,10 @@ export function VueTableau({ planning }: { planning: VuePlanning }) {
                     </span>
                   </th>
                   {planning.colonnes.map((colonne) => {
-                    const cellule = ligne.cellules[colonne.sessionId];
+                    const cellule = ligne.cellules[colonne.cle];
                     return (
                       <td
-                        key={colonne.sessionId}
+                        key={colonne.cle}
                         className="border-b border-bordure px-3 py-2 align-top"
                       >
                         <span className="flex flex-col items-start gap-1">
@@ -135,10 +135,10 @@ export function VueTableau({ planning }: { planning: VuePlanning }) {
             </div>
             <ul className="mt-3 space-y-2">
               {planning.colonnes.map((colonne) => {
-                const cellule = ligne.cellules[colonne.sessionId];
+                const cellule = ligne.cellules[colonne.cle];
                 return (
                   <li
-                    key={colonne.sessionId}
+                    key={colonne.cle}
                     className="flex flex-wrap items-center justify-between gap-2 border-t border-bordure pt-2 text-sm first:border-0 first:pt-0"
                   >
                     <span className="min-w-0">

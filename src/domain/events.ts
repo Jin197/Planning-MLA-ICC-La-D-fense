@@ -1,6 +1,88 @@
-import type { EventState, EventSession, Id } from "./types";
+import type { IsoInstant } from "@/lib/time";
+import type { Event, EventState, EventSession, Id } from "./types";
 import { computeSlotFill, type SlotFillState } from "./assignments";
 import type { Assignment, EventRoleSlot } from "./types";
+
+/* -------------------------------------------------------------------------- */
+/* Occurrences                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Occurrence d'un evenement : un de ses sous-evenements, ou l'evenement
+ * lui-meme quand il n'en a aucun.
+ *
+ * Les sous-evenements etant facultatifs, c'est cette unite — et pas le
+ * sous-evenement — que lisent le planning, les rappels, les exports et les
+ * reponses de disponibilite. Le reste du code n'a donc pas a repeter le cas
+ * « aucun sous-evenement ».
+ */
+export interface EventOccurrence {
+  /** null quand l'occurrence est l'evenement lui-meme. */
+  sessionId: Id | null;
+  label: string;
+  startsAt: IsoInstant;
+  endsAt: IsoInstant;
+  locationName: string;
+  locationAddress: string;
+  scheduleProvisional: boolean;
+}
+
+export type EventSchedule = Pick<
+  Event,
+  | "title"
+  | "startsAt"
+  | "endsAt"
+  | "locationName"
+  | "locationAddress"
+  | "scheduleProvisional"
+>;
+
+export function occurrencesOf(
+  event: EventSchedule,
+  sessions: readonly EventSession[],
+): EventOccurrence[] {
+  if (sessions.length === 0) {
+    return [
+      {
+        sessionId: null,
+        label: event.title,
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        locationName: event.locationName,
+        locationAddress: event.locationAddress,
+        scheduleProvisional: event.scheduleProvisional,
+      },
+    ];
+  }
+  return [...sessions]
+    .sort((a, b) => a.ordinal - b.ordinal)
+    .map((session) => ({
+      sessionId: session.id,
+      label: session.label,
+      startsAt: session.startsAt,
+      endsAt: session.endsAt,
+      locationName: session.locationName,
+      locationAddress: session.locationAddress,
+      scheduleProvisional: session.scheduleProvisional,
+    }));
+}
+
+/**
+ * Fenetre d'ensemble d'un evenement : son propre horaire, elargi a celui de
+ * ses sous-evenements. Un sous-evenement place en dehors de la fenetre
+ * annoncee l'etend, il ne la contredit pas.
+ */
+export function eventWindow(
+  event: Pick<Event, "startsAt" | "endsAt">,
+  sessions: readonly { startsAt: IsoInstant; endsAt: IsoInstant }[],
+): { startsAt: IsoInstant; endsAt: IsoInstant } {
+  let { startsAt, endsAt } = event;
+  for (const session of sessions) {
+    if (session.startsAt < startsAt) startsAt = session.startsAt;
+    if (session.endsAt > endsAt) endsAt = session.endsAt;
+  }
+  return { startsAt, endsAt };
+}
 
 /**
  * Cycle de vie d'un evenement.
@@ -45,9 +127,9 @@ export const EVENT_STATE_HELP: Record<EventState, string> = {
 export interface PublicationBlocker {
   severity: "bloquant" | "alerte";
   code:
-    | "aucun_creneau"
     | "horaire_provisoire"
-    | "aucun_plan"
+    | "aucune_equipe"
+    | "equipe_sans_rattachement"
     | "poste_a_completer"
     | "reponses_manquantes"
     | "affectations_non_confirmees"
@@ -58,8 +140,11 @@ export interface PublicationBlocker {
 }
 
 export interface PublicationReadinessInput {
+  event: EventSchedule;
+  /** Sous-evenements, eventuellement aucun. */
   sessions: readonly EventSession[];
-  plans: readonly { id: Id; sessionId: Id; teamId: Id }[];
+  teams: readonly { id: Id; name: string }[];
+  plans: readonly { id: Id; sessionId: Id | null; teamId: Id }[];
   slots: readonly EventRoleSlot[];
   assignments: readonly Assignment[];
   /** Nombre de reponses de disponibilite attendues et manquantes. */
@@ -85,32 +170,44 @@ export function computePublicationReadiness(
 ): PublicationReadiness {
   const blockers: PublicationBlocker[] = [];
 
-  if (input.sessions.length === 0) {
-    blockers.push({
-      severity: "bloquant",
-      code: "aucun_creneau",
-      message: "L'evenement n'a aucun creneau date.",
-    });
-  }
-
-  const provisional = input.sessions.filter((s) => s.scheduleProvisional);
+  // Un evenement sans sous-evenement est complet : il repond pour lui-meme.
+  const provisional = occurrencesOf(input.event, input.sessions).filter(
+    (o) => o.scheduleProvisional,
+  );
   if (provisional.length > 0) {
     blockers.push({
       severity: "bloquant",
       code: "horaire_provisoire",
       count: provisional.length,
-      message: `Horaire a definir sur ${provisional.length} creneau(x) : ${provisional
-        .map((s) => s.label)
-        .join(", ")}.`,
+      message:
+        provisional.length === 1 && provisional[0]!.sessionId === null
+          ? "L'horaire de l'evenement reste a definir."
+          : `Horaire a definir sur ${provisional.length} sous-evenement(s) : ${provisional
+              .map((o) => o.label)
+              .join(", ")}.`,
     });
   }
 
-  if (input.plans.length === 0) {
+  if (input.teams.length === 0) {
     blockers.push({
       severity: "bloquant",
-      code: "aucun_plan",
-      message: "Aucun plan d'equipe n'a ete prepare pour ces creneaux.",
+      code: "aucune_equipe",
+      message: "Aucune equipe n'a ete creee dans cet evenement.",
     });
+  } else {
+    const orphans = input.teams.filter(
+      (team) => !input.plans.some((plan) => plan.teamId === team.id),
+    );
+    if (orphans.length > 0) {
+      blockers.push({
+        severity: "bloquant",
+        code: "equipe_sans_rattachement",
+        count: orphans.length,
+        message: `${orphans.length} equipe(s) sans rattachement : ${orphans
+          .map((t) => t.name)
+          .join(", ")}. Rattachez-les a l'evenement ou a un sous-evenement.`,
+      });
+    }
   }
 
   const slotStates = input.slots.map((slot) =>
@@ -205,7 +302,7 @@ export const DEFAULT_DUPLICATE_OPTIONS: DuplicateOptions = {
  * membres : ces reponses appartiennent a l'evenement d'origine.
  */
 export const NEVER_DUPLICATED = [
-  "session_availabilities",
+  "availabilities",
   "availability_reasons",
   "rehearsal_availabilities",
   "event_messages",

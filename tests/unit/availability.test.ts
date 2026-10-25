@@ -5,7 +5,7 @@ import {
   parseAvailabilityToken,
   resolveAvailabilityForDay,
 } from "@/domain/availability";
-import type { SessionAvailability } from "@/domain/types";
+import type { Availability } from "@/domain/types";
 
 const sessions = [
   { id: "s1", ordinal: 1, label: "Culte 1" },
@@ -103,9 +103,10 @@ describe("projection sur les creneaux reels", () => {
 });
 
 describe("etat affiche", () => {
-  const base: SessionAvailability = {
+  const base: Availability = {
     id: "a1",
     communityId: "c1",
+    eventId: "e1",
     sessionId: "s1",
     membershipId: "m1",
     answer: "disponible",

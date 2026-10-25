@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCommunityAction } from "@/server/auth/context";
-import { getCommunity, listTeams, getTemplate } from "@/server/services/communities";
+import {
+  getCommunity,
+  getTemplate,
+  listMembers,
+} from "@/server/services/communities";
 import { Alerte, Card, CardBody, CardHeader } from "@/components/ui/primitives";
 import { FormulaireEvenement } from "./formulaire";
 
@@ -15,11 +19,18 @@ export default async function PageNouvelEvenement({
   const { communityId } = await params;
   await requireCommunityAction(communityId, "evenement.creer");
 
-  const [community, teams, template] = await Promise.all([
+  const [community, membres, template] = await Promise.all([
     getCommunity(communityId),
-    listTeams(communityId),
+    listMembers(communityId),
     getTemplate(communityId),
   ]);
+
+  const actifs = membres
+    .filter((m) => m.status === "active")
+    .map((m) => ({
+      membershipId: m.membershipId,
+      name: `${m.firstName} ${m.lastName}`,
+    }));
 
   const postes = (template?.fields ?? []).filter(
     (f) => f.assignable && f.archivedAt === null,
@@ -35,18 +46,21 @@ export default async function PageNouvelEvenement({
         </p>
         <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">Nouvel evenement</h1>
         <p className="mt-1 max-w-prose text-sm text-nuit-doux">
-          Une journee peut comporter plusieurs creneaux avec des horaires et des
-          affectations differents. Les postes du modele sont copies
-          automatiquement dans chaque plan.
+          Nommez l&apos;evenement et donnez-lui son horaire. Decoupez-le en
+          sous-evenements si besoin, puis creez autant d&apos;equipes que
+          necessaire : chacune sert soit sur un sous-evenement precis, soit sur
+          toute la duree.
         </p>
       </header>
 
-      {teams.length === 0 ? (
-        <Alerte ton="attention" titre="Aucune equipe">
+      {actifs.length === 0 ? (
+        <Alerte ton="attention" titre="Aucun membre actif">
           <p>
-            Creez au moins une equipe dans les{" "}
-            <Link href={`/c/${communityId}/parametres`} className="underline">
-              parametres de la communaute
+            Vous pouvez creer l&apos;evenement et ses equipes, mais leur
+            effectif restera vide jusqu&apos;a ce que des adhesions soient
+            acceptees dans les{" "}
+            <Link href={`/c/${communityId}/membres`} className="underline">
+              membres de la communaute
             </Link>
             .
           </p>
@@ -55,14 +69,11 @@ export default async function PageNouvelEvenement({
 
       <Card>
         <CardHeader
-          titre="Informations, creneaux et repetitions"
+          titre="Evenement, sous-evenements, equipes et repetitions"
           sousTitre="Chaque date est explicite : une heure seule ne permet pas de planifier."
         />
         <CardBody>
-          <FormulaireEvenement
-            communityId={communityId}
-            equipes={teams.map((t) => ({ id: t.id, name: t.name }))}
-          />
+          <FormulaireEvenement communityId={communityId} membres={actifs} />
         </CardBody>
       </Card>
 

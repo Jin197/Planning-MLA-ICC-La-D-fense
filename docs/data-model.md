@@ -8,7 +8,6 @@ l'adaptateur Supabase fait la conversion.
 
 ```
 profiles ──┬─< community_memberships >─┬── communities
-           │         │                 ├── teams ──< team_memberships
            │         │                 ├── skills ──< membership_skills
            │         │                 └── planning_templates ──< template_fields
            ├─< join_requests >─────────┘
@@ -16,13 +15,18 @@ profiles ──┬─< community_memberships >─┬── communities
            ├─< notifications
            └─< message_read_cursors
 
-communities ──< events ──┬──< event_sessions ──┬──< event_plans ──┬──< event_role_slots
-                         │                     │        │          └──< assignments
-                         │                     │        └── teams          │
-                         │                     ├──< session_availabilities ─┘
-                         │                     │        └──< availability_reasons  (prive)
-                         │                     └──< setlist_items >── songs
-                         ├──< rehearsals ──┬──< rehearsal_teams >── teams
+communities ──< events ──┬──< event_sessions   (sous-evenements, 0..n)
+                         ├──< event_teams ──< event_team_members
+                         │        │
+                         ├──< event_plans ──┬──< event_role_slots ──< assignments
+                         │   (team_id +     │
+                         │    session_id    │
+                         │    nullable)     │
+                         ├──< availabilities ──< availability_reasons  (prive)
+                         │   (session_id nullable)
+                         ├──< setlist_items >── songs
+                         │   (session_id nullable)
+                         ├──< rehearsals ──┬──< rehearsal_teams >── event_teams
                          │                 └──< rehearsal_availabilities
                          │                        └──< rehearsal_availability_reasons (prive)
                          ├──< dress_codes ──< event_assets
@@ -37,6 +41,24 @@ audit_logs            (admins de la communaute uniquement)
 ```
 
 `>──` indique une cle etrangere ; `··` un rapprochement facultatif.
+
+## Trois choix de structure
+
+**L'evenement est l'unite.** L'admin le nomme librement — culte du dimanche,
+anniversaire, convention — et lui donne son propre horaire. Cet horaire n'est
+pas decoratif : c'est celui auquel les membres repondent quand l'evenement
+n'a pas de sous-evenement.
+
+**Les sous-evenements sont facultatifs.** Un evenement peut n'en avoir aucun,
+ou en avoir autant que necessaire (« Culte 1 », « Culte 2 »...). Le code ne
+repete pas ce cas partout : le domaine expose `occurrencesOf(event, sessions)`,
+qui rend les sous-evenements s'il y en a, et l'evenement lui-meme sinon. Les
+disponibilites, le planning, les rappels et les exports lisent cette liste.
+
+**Les equipes appartiennent a l'evenement.** Elles sont creees dedans, en
+nombre libre, avec leur effectif, et disparaissent avec lui : rien ne se
+reporte sur l'evenement suivant. Dupliquer un evenement recopie ses equipes
+et leur effectif, ce qui reste la facon de repartir d'une composition connue.
 
 ## Dictionnaire des donnees
 
@@ -107,8 +129,11 @@ actif. `version` s'incremente a chaque modification.
 | `version` | **Verrou optimiste.** Toute ecriture compare cette valeur |
 | `published_version` | Numero de publication ; entre dans les cles d'idempotence |
 | `response_deadline` | Limite de reponse, facultative |
+| `starts_at`, `ends_at` | Horaire propre de l'evenement. Elargi, jamais reduit, par ses sous-evenements |
+| `location_name`, `location_address` | Lieu de l'evenement |
+| `schedule_provisional` | Horaire encore a definir : bloque la publication |
 
-**`event_sessions`** — le creneau, pas la journee.
+**`event_sessions`** — le sous-evenement, facultatif, pas la journee.
 
 | Colonne | Notes |
 | --- | --- |
@@ -116,8 +141,21 @@ actif. `version` s'incremente a chaque modification.
 | `starts_at`, `ends_at` | Instants UTC. Contrainte `ends_at > starts_at` |
 | `schedule_provisional` | Horaire a definir (import) : **bloque la publication** |
 
-**`event_plans`** — `unique (session_id, team_id)` : un seul plan par equipe
-et par creneau.
+**`event_teams`** — `unique (event_id, name)` : deux equipes d'un meme
+evenement ne portent pas le meme nom, mais « Equipe 1 » peut exister dans
+autant d'evenements qu'on veut.
+
+**`event_plans`** — le rattachement d'une equipe, et sa feuille de postes.
+`session_id` porte le choix de l'admin : un sous-evenement precis, ou `null`
+pour « toute la duree de l'evenement ». Deux index partiels remplacent une
+contrainte unique, parce qu'en SQL deux `null` ne sont pas egaux :
+
+```sql
+create unique index event_plans_one_per_team_session
+  on event_plans (team_id, session_id) where session_id is not null;
+create unique index event_plans_one_per_team_event
+  on event_plans (team_id) where session_id is null;
+```
 
 **`event_role_slots`** — postes copies du modele dans le plan.
 
@@ -144,7 +182,11 @@ affectation retiree reste en base pour l'historique.
 
 ### Disponibilites
 
-**`session_availabilities`** — `unique (session_id, membership_id)`.
+**`availabilities`** — une reponse par membre et par occurrence, avec la
+meme technique d'index partiels : `(session_id, membership_id)` quand la
+reponse porte sur un sous-evenement, `(event_id, membership_id)` quand elle
+porte sur l'evenement. L'absence de ligne signifie « a renseigner » : elle
+n'est jamais convertie.
 
 L'**absence de ligne** signifie « a renseigner ». Elle n'est jamais convertie
 en disponibilite ni en indisponibilite.
@@ -220,8 +262,9 @@ reproduit ces controles dans `assertCommunityCoherence`.
 | --- | --- |
 | Adhesion unique utilisateur / communaute | `unique (community_id, user_id)` |
 | Une seule demande en attente | Index unique partiel sur `status = 'en_attente'` |
-| Disponibilite unique membre / creneau | `unique (session_id, membership_id)` |
-| Un plan par equipe et creneau | `unique (session_id, team_id)` |
+| Disponibilite unique membre / occurrence | index partiels sur `availabilities` |
+| Un rattachement par equipe et sous-evenement | index partiels sur `event_plans` |
+| Nom d'equipe unique dans un evenement | `unique (event_id, name)` sur `event_teams` |
 | Pas de double affectation active | Index unique partiel sur `state <> 'retiree'` |
 | Fin apres debut | `check (ends_at > starts_at)` sur creneaux et repetitions |
 | Effectif minimum positif ou nul | `check (min_required >= 0)` |

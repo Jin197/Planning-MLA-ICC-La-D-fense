@@ -3,7 +3,6 @@ import { getCommunityContext } from "@/server/auth/context";
 import {
   listMembers,
   listSkills,
-  listTeams,
   getCommunity,
 } from "@/server/services/communities";
 import {
@@ -35,11 +34,10 @@ export default async function PageMembres({
   const ctx = await getCommunityContext(communityId);
   const estAdmin = ctx.membership?.role === "admin";
 
-  const [community, membres, competences, equipes] = await Promise.all([
+  const [community, membres, competences] = await Promise.all([
     getCommunity(communityId),
     listMembers(communityId),
     listSkills(communityId),
-    listTeams(communityId),
   ]);
 
   const actifs = membres.filter((m) => m.status === "active");
@@ -118,9 +116,13 @@ export default async function PageMembres({
                       <Badge ton={membre.role === "admin" ? "indigo" : "neutre"}>
                         {membre.role === "admin" ? "Admin" : "Membre"}
                       </Badge>
-                      {membre.teams.map((equipe) => (
-                        <Badge key={equipe} ton="or">
-                          {equipe}
+                      {membre.upcomingTeams.map((equipe) => (
+                        <Badge
+                          key={`${equipe.eventId}-${equipe.teamName}`}
+                          ton="or"
+                          titre={`Equipe de l'evenement « ${equipe.eventTitle} »`}
+                        >
+                          {equipe.teamName}
                         </Badge>
                       ))}
                     </div>
@@ -183,16 +185,14 @@ export default async function PageMembres({
       <Card>
         <CardHeader
           titre="Equipes"
-          sousTitre="Une equipe regroupe des personnes pour l'organisation des plans."
+          sousTitre="Les equipes appartiennent a un evenement : elles se creent dans l'evenement concerne, pas ici."
         />
         <CardBody>
-          <ul className="flex flex-wrap gap-2">
-            {equipes.map((equipe) => (
-              <li key={equipe.id}>
-                <Badge ton="or">{equipe.name}</Badge>
-              </li>
-            ))}
-          </ul>
+          <p className="text-sm text-nuit-doux">
+            Les etiquettes dorees ci-dessus indiquent les equipes auxquelles une
+            personne appartient sur les evenements a venir. Pour composer une
+            equipe, ouvrez l&apos;evenement et son onglet « Equipes et postes ».
+          </p>
         </CardBody>
       </Card>
     </div>
