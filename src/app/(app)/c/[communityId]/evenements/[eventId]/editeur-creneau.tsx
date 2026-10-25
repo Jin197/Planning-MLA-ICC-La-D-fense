@@ -53,7 +53,7 @@ export function EditeurCreneau({
       {ouvert ? (
         <form
           action={action}
-          className="mt-3 space-y-4 rounded-[var(--radius-doux)] border border-bordure p-3"
+          className="mt-3 space-y-4 rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
         >
           <input type="hidden" name="communityId" value={communityId} />
           <input type="hidden" name="eventId" value={eventId} />

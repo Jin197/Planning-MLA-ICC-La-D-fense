@@ -78,7 +78,7 @@ export default async function PageAccueil() {
             {bord.tachesAdmin.map((tache) => (
               <div
                 key={tache.communityId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-doux)] border border-bordure bg-ivoire-fonce/60 px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-doux)] bg-ivoire-fonce/60 px-4 py-3"
               >
                 <div className="min-w-0">
                   <p className="font-medium">{tache.communityName}</p>
@@ -104,14 +104,14 @@ export default async function PageAccueil() {
                   {tache.demandesEnAttente > 0 ? (
                     <Link
                       href={`/c/${tache.communityId}/demandes`}
-                      className="inline-flex min-h-9 items-center rounded-[var(--radius-doux)] border border-bordure-forte px-3 text-sm"
+                      className="inline-flex min-h-9 items-center rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-3 text-sm"
                     >
                       Demandes
                     </Link>
                   ) : null}
                   <Link
                     href={`/c/${tache.communityId}/planning`}
-                    className="inline-flex min-h-9 items-center rounded-[var(--radius-doux)] border border-bordure-forte px-3 text-sm"
+                    className="inline-flex min-h-9 items-center rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-3 text-sm"
                   >
                     Planning
                   </Link>
@@ -132,7 +132,7 @@ export default async function PageAccueil() {
             {bord.prochainEvenement ? (
               <Link
                 href={`/c/${bord.prochainEvenement.communityId}/evenements/${bord.prochainEvenement.eventId}`}
-                className="block rounded-[var(--radius-doux)] border border-bordure p-4 hover:bg-ivoire-fonce/60"
+                className="block rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-4 hover:bg-ivoire-fonce/60"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -184,7 +184,7 @@ export default async function PageAccueil() {
                   <li key={reponse.eventId}>
                     <Link
                       href={`/c/${reponse.communityId}/evenements/${reponse.eventId}`}
-                      className="block rounded-[var(--radius-doux)] border border-bordure p-3 hover:bg-ivoire-fonce/60"
+                      className="block rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3 hover:bg-ivoire-fonce/60"
                     >
                       <p className="text-sm text-nuit-doux">{reponse.communityName}</p>
                       <p className="font-medium">{reponse.eventTitle}</p>
@@ -269,7 +269,7 @@ export default async function PageAccueil() {
                 <li key={message.eventId}>
                   <Link
                     href={`/c/${message.communityId}/evenements/${message.eventId}?onglet=discussion`}
-                    className="flex items-center justify-between gap-3 rounded-[var(--radius-doux)] border border-bordure px-3 py-2 hover:bg-ivoire-fonce/60"
+                    className="flex items-center justify-between gap-3 rounded-[var(--radius-doux)] bg-ivoire-fonce/60 px-3 py-2 hover:bg-ivoire-fonce/60"
                   >
                     <span className="inline-flex min-w-0 items-center gap-2">
                       <MessageSquare aria-hidden="true" className="size-4 shrink-0" />

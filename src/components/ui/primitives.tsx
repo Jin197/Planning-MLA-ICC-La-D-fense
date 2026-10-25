@@ -17,7 +17,8 @@ export function Card({
   return (
     <Tag
       className={cn(
-        "rounded-[var(--radius-carte)] border border-bordure bg-surface shadow-[var(--shadow-carte)]",
+        // Aucun contour : la carte se distingue par sa surface et son ombre.
+        "rounded-[var(--radius-carte)] bg-surface shadow-[var(--shadow-carte)]",
         className,
       )}
     >
@@ -197,7 +198,7 @@ export function EtatVide({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-[var(--radius-doux)] border border-dashed border-bordure-forte bg-ivoire-fonce/60 px-6 py-10 text-center">
+    <div className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 px-6 py-10 text-center">
       <p className="font-medium text-nuit">{titre}</p>
       {description ? (
         <p className="mx-auto mt-2 max-w-prose text-sm text-nuit-doux">{description}</p>
@@ -295,7 +296,7 @@ export function GrilleDefilante({
   legende?: string;
 }) {
   return (
-    <div className="grille-defilante max-h-[70vh] rounded-[var(--radius-doux)] border border-bordure">
+    <div className="grille-defilante max-h-[70vh] rounded-[var(--radius-doux)] bg-ivoire-fonce/60">
       {legende ? <p className="sr-only">{legende}</p> : null}
       {children}
     </div>

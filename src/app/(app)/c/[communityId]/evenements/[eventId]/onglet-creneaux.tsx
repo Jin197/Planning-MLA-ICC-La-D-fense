@@ -96,7 +96,7 @@ export function OngletCreneaux({
                 <section
                   key={plan.id}
                   aria-labelledby={`plan-${plan.id}`}
-                  className="rounded-[var(--radius-carte)] border border-bordure"
+                  className="rounded-[var(--radius-carte)] bg-ivoire-fonce/60"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bordure bg-ivoire-fonce/50 px-4 py-2.5">
                     <h3 id={`plan-${plan.id}`} className="font-medium">

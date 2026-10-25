@@ -120,7 +120,7 @@ export function VueTableau({ planning }: { planning: VuePlanning }) {
         {planning.lignes.map((ligne) => (
           <li
             key={ligne.membershipId}
-            className="rounded-[var(--radius-doux)] border border-bordure p-3"
+            className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
           >
             <div className="flex items-center gap-2">
               <Avatar initiales={ligne.initiales} nom={ligne.nom} />

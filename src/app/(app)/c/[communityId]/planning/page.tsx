@@ -62,14 +62,14 @@ export default async function PagePlanning({
           ) : null}
           <a
             href={`/api/c/${communityId}/exports/affectations.csv`}
-            className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] border border-bordure-forte px-4 py-2 text-sm"
+            className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-4 py-2 text-sm"
           >
             <Download aria-hidden="true" className="size-4" />
             Export CSV
           </a>
           <a
             href="/api/moi/calendrier.ics"
-            className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] border border-bordure-forte px-4 py-2 text-sm"
+            className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-4 py-2 text-sm"
           >
             <Printer aria-hidden="true" className="size-4" />
             Mon calendrier (.ics)

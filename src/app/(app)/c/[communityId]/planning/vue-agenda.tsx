@@ -71,7 +71,7 @@ export function VueAgenda({ planning }: { planning: VuePlanning }) {
                       {evenement.creneaux.map((creneau) => (
                         <li
                           key={creneau.id}
-                          className="rounded-[var(--radius-doux)] border border-bordure p-3"
+                          className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -102,7 +102,7 @@ export function VueAgenda({ planning }: { planning: VuePlanning }) {
                                 <ul className="mt-2 flex flex-wrap gap-2">
                                   {creneau.mesPostes.map((poste, index) => (
                                     <li key={`${poste.label}-${index}`}>
-                                      <span className="inline-flex items-center gap-1.5 rounded-full border border-bordure bg-ivoire-fonce px-2.5 py-0.5 text-xs">
+                                      <span className="inline-flex items-center gap-1.5 rounded-full bg-ivoire-fonce px-2.5 py-0.5 text-xs">
                                         <Music2 aria-hidden="true" className="size-3" />
                                         {poste.label}
                                       </span>
@@ -172,7 +172,7 @@ export function VueAgenda({ planning }: { planning: VuePlanning }) {
 
                     <Link
                       href={`/c/${planning.communityId}/evenements/${evenement.id}`}
-                      className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] border border-bordure-forte px-4 text-sm"
+                      className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-4 text-sm"
                     >
                       Ouvrir l&apos;evenement
                     </Link>

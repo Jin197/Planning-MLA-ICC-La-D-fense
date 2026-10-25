@@ -48,7 +48,7 @@ export default async function PageCommunautes({
         ) : (
           <Link
             href="/profil"
-            className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] border border-bordure-forte px-4 py-2 text-sm"
+            className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-4 py-2 text-sm"
           >
             Je suis responsable de ministere
           </Link>
@@ -72,7 +72,7 @@ export default async function PageCommunautes({
             </div>
             <button
               type="submit"
-              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] border border-bordure-forte px-4"
+              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-4"
             >
               <Search aria-hidden="true" className="size-4" />
               Rechercher
@@ -116,7 +116,7 @@ export default async function PageCommunautes({
                       </Badge>
                       <Link
                         href={`/c/${entree.id}/planning`}
-                        className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] border border-bordure-forte px-4 text-sm"
+                        className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-4 text-sm"
                       >
                         Ouvrir le planning
                       </Link>

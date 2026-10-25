@@ -74,7 +74,7 @@ export function Moodboard({
             {visuels.map((visuel) => (
               <li
                 key={visuel.id}
-                className="overflow-hidden rounded-[var(--radius-doux)] border border-bordure"
+                className="overflow-hidden rounded-[var(--radius-doux)] bg-ivoire-fonce/60"
               >
                 {/* Image servie par une route authentifiee, jamais depuis public/. */}
                 <img

@@ -60,7 +60,7 @@ export function EditeurModele({
           {postes.map((poste) => (
             <li
               key={poste.id}
-              className="rounded-[var(--radius-doux)] border border-bordure p-3"
+              className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
             >
               <div className="flex flex-wrap items-end gap-3">
                 <form

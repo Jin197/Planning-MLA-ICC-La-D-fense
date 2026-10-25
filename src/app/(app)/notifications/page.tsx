@@ -83,7 +83,7 @@ export default async function PageNotifications() {
                       {notification.href ? (
                         <Link
                           href={notification.href}
-                          className="inline-flex min-h-9 items-center rounded-[var(--radius-doux)] border border-bordure-forte px-3 text-sm"
+                          className="inline-flex min-h-9 items-center rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-3 text-sm"
                         >
                           Ouvrir
                         </Link>
@@ -116,7 +116,7 @@ export default async function PageNotifications() {
                     {notification.href ? (
                       <Link
                         href={notification.href}
-                        className="inline-flex min-h-9 items-center rounded-[var(--radius-doux)] border border-bordure-forte px-3 text-sm"
+                        className="inline-flex min-h-9 items-center rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-3 text-sm"
                       >
                         Lire
                       </Link>

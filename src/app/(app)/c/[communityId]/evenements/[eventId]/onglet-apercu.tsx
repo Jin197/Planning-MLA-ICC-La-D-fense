@@ -57,7 +57,7 @@ export function OngletApercu({
             {vue.sessions.map(({ session, myAvailability, myReason, responseSummary }) => (
               <li
                 key={session.id}
-                className="rounded-[var(--radius-doux)] border border-bordure p-3"
+                className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">

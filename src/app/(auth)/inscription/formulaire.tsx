@@ -23,7 +23,7 @@ export function FormulaireInscription() {
           {etat.message}
         </Alerte>
         {etat.extra?.jeton ? (
-          <div className="rounded-[var(--radius-doux)] border border-bordure bg-ivoire-fonce p-4 text-sm">
+          <div className="rounded-[var(--radius-doux)] bg-ivoire-fonce p-4 text-sm">
             <p className="font-medium">Verification de l&apos;email</p>
             <p className="mt-1 break-all text-nuit-doux">
               Jeton : <code>{etat.extra.jeton}</code>

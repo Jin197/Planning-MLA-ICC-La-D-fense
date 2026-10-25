@@ -76,7 +76,7 @@ export default async function PageNouvelEvenement({
             {postes.map((poste) => (
               <li
                 key={poste.id}
-                className="rounded-full border border-bordure bg-ivoire-fonce px-3 py-1 text-sm"
+                className="rounded-full bg-ivoire-fonce px-3 py-1 text-sm"
               >
                 {poste.label}
                 {poste.minRequired === 0 ? (

@@ -71,7 +71,7 @@ export default async function PageBoiteMail() {
               {jetons.map((jeton) => (
                 <li
                   key={jeton.email}
-                  className="rounded-[var(--radius-doux)] border border-bordure p-3 text-sm"
+                  className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3 text-sm"
                 >
                   <p className="font-medium">{jeton.email}</p>
                   {jeton.verification ? (

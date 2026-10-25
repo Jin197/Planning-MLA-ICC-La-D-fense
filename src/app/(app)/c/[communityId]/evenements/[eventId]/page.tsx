@@ -96,7 +96,7 @@ export default async function PageEvenement({
           <BadgeEtatEvenement etat={vue.event.state} />
           <a
             href={`/c/${communityId}/evenements/${eventId}/impression`}
-            className="sans-impression inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-doux)] border border-bordure-forte px-3 text-sm"
+            className="sans-impression inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-3 text-sm"
           >
             <Printer aria-hidden="true" className="size-4" />
             Version imprimable

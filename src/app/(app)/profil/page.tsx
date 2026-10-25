@@ -85,7 +85,7 @@ export default async function PageProfil() {
               {nav.communities.map((communaute) => (
                 <li
                   key={communaute.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-doux)] border border-bordure px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-doux)] bg-ivoire-fonce/60 px-3 py-2"
                 >
                   <Link
                     href={`/c/${communaute.id}/planning`}
@@ -125,7 +125,7 @@ export default async function PageProfil() {
           <form action="/api/deconnexion" method="post">
             <button
               type="submit"
-              className="min-h-11 rounded-[var(--radius-doux)] border border-bordure-forte px-4 text-sm"
+              className="min-h-11 rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-4 text-sm"
             >
               Se deconnecter
             </button>

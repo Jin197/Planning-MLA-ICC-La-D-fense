@@ -73,7 +73,7 @@ export function RepondreDisponibilite({
             onClick={() =>
               setSelection(tousSelectionnes ? [] : creneaux.map((c) => c.id))
             }
-            className="min-h-9 rounded-full border border-bordure-forte px-3 text-sm"
+            className="min-h-9 rounded-full bg-ivoire-fonce/60-forte px-3 text-sm"
           >
             {tousSelectionnes ? "Tout deselectionner" : "Tous les cultes"}
           </button>

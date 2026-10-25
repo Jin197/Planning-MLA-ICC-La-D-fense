@@ -251,7 +251,7 @@ export function FilDiscussion({
           </div>
 
           {fil.mentionables.length > 0 ? (
-            <details className="rounded-[var(--radius-doux)] border border-bordure px-3 py-2">
+            <details className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 px-3 py-2">
               <summary className="cursor-pointer text-sm">
                 Mentionner des membres ({fil.mentionables.length})
               </summary>

@@ -62,7 +62,7 @@ export function GestionEquipes({
             {equipes.map((equipe) => (
               <li
                 key={equipe.id}
-                className="rounded-[var(--radius-doux)] border border-bordure p-3"
+                className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
               >
                 <p className="flex items-center gap-2 font-medium">
                   <Users aria-hidden="true" className="size-4" />

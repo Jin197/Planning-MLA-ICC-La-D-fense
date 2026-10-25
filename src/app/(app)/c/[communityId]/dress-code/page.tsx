@@ -106,7 +106,7 @@ export default async function PageDressCode({
                           >
                             <span
                               aria-hidden="true"
-                              className="inline-block size-8 rounded-[var(--radius-doux)] border border-bordure-forte"
+                              className="inline-block size-8 rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte"
                               style={{ backgroundColor: couleur }}
                             />
                             {couleur}

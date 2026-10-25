@@ -42,7 +42,7 @@ export async function OngletDressCode({
                     <li key={couleur} className="flex items-center gap-2">
                       <span
                         aria-hidden="true"
-                        className="inline-block size-10 rounded-[var(--radius-doux)] border border-bordure-forte"
+                        className="inline-block size-10 rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte"
                         style={{ backgroundColor: couleur }}
                       />
                       <span className="text-sm">{couleur}</span>
@@ -94,7 +94,7 @@ export async function OngletDressCode({
               {variantes.map((variante) => (
                 <li
                   key={variante.id}
-                  className="rounded-[var(--radius-doux)] border border-bordure p-3"
+                  className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
                 >
                   <p className="font-medium">
                     {vue.teams.find((t) => t.id === variante.teamId)?.name ??
@@ -106,7 +106,7 @@ export async function OngletDressCode({
                         <li key={couleur} className="flex items-center gap-1.5 text-sm">
                           <span
                             aria-hidden="true"
-                            className="inline-block size-5 rounded border border-bordure-forte"
+                            className="inline-block size-5 rounded bg-ivoire-fonce/60-forte"
                             style={{ backgroundColor: couleur }}
                           />
                           {couleur}

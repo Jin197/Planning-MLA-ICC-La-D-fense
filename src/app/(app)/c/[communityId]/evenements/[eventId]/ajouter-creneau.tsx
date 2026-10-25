@@ -127,7 +127,7 @@ export function AjouterCreneau({
               <ul className="mt-2 grid gap-2 sm:grid-cols-2">
                 {equipes.map((equipe) => (
                   <li key={equipe.id}>
-                    <label className="flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] border border-bordure px-3 text-sm">
+                    <label className="flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-ivoire-fonce/60 px-3 text-sm">
                       <input
                         type="checkbox"
                         name="teamIds"

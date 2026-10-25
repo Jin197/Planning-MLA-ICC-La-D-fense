@@ -29,7 +29,7 @@ export function SelecteurVue({
   return (
     <div className="sans-impression flex flex-wrap items-center justify-between gap-3">
       <nav aria-label="Vue du planning">
-        <ul className="inline-flex rounded-[var(--radius-doux)] border border-bordure bg-surface p-1">
+        <ul className="inline-flex rounded-[var(--radius-doux)] bg-ivoire-fonce p-1">
           {VUES.map((v) => (
             <li key={v.id}>
               <Link

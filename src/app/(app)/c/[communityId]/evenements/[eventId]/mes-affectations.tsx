@@ -80,7 +80,7 @@ export function MesAffectations({
             {miennes.map((affectation) => (
               <li
                 key={affectation.assignmentId}
-                className="rounded-[var(--radius-doux)] border border-bordure p-3"
+                className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">

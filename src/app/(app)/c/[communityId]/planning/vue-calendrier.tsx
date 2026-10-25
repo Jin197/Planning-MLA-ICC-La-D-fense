@@ -156,7 +156,7 @@ export function VueCalendrier({ planning }: { planning: VuePlanning }) {
             joursAvecEvenements.map((cellule) => (
               <li
                 key={cellule.cle}
-                className="rounded-[var(--radius-doux)] border border-bordure p-3"
+                className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
               >
                 <p className="text-sm font-semibold">
                   {new Intl.DateTimeFormat("fr-FR", {

@@ -137,7 +137,7 @@ export function Shell({
                 const value = event.target.value;
                 if (value) router.push(`/c/${value}/planning`);
               }}
-              className="mt-1.5 w-full min-h-11 rounded-[var(--radius-doux)] border border-bordure-forte bg-surface px-2 py-2 text-sm"
+              className="mt-1.5 w-full min-h-11 rounded-[var(--radius-doux)] -forte bg-surface px-2 py-2 text-sm"
             >
               <option value="">Choisir une communaute</option>
               {nav.communities.map((c) => (
@@ -215,7 +215,7 @@ export function Shell({
                 const value = event.target.value;
                 if (value) router.push(`/c/${value}/planning`);
               }}
-              className="ml-auto min-h-11 min-w-0 flex-1 rounded-[var(--radius-doux)] border border-bordure-forte bg-surface px-2 py-1.5 text-sm"
+              className="ml-auto min-h-11 min-w-0 flex-1 rounded-[var(--radius-doux)] -forte bg-surface px-2 py-1.5 text-sm"
             >
               <option value="">Communautes</option>
               {nav.communities.map((c) => (

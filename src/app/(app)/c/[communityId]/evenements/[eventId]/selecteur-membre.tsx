@@ -93,7 +93,7 @@ export function SelecteurMembre({
       {ouvert ? (
         <div
           id={panneauId}
-          className="mt-3 rounded-[var(--radius-doux)] border border-bordure bg-ivoire-fonce/40 p-3"
+          className="mt-3 rounded-[var(--radius-doux)] bg-ivoire-fonce/40 p-3"
         >
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-0 flex-1">

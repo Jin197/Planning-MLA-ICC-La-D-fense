@@ -138,7 +138,7 @@ export function FormulaireEvenement({
           {creneaux.map((creneau, index) => (
             <li
               key={creneau.cle}
-              className="rounded-[var(--radius-doux)] border border-bordure p-3"
+              className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium">Creneau {index + 1}</p>
@@ -269,7 +269,7 @@ export function FormulaireEvenement({
         <ul className="grid gap-2 sm:grid-cols-2">
           {equipes.map((equipe, index) => (
             <li key={equipe.id}>
-              <label className="flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] border border-bordure px-3 text-sm">
+              <label className="flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-ivoire-fonce/60 px-3 text-sm">
                 <input
                   type="checkbox"
                   name="teamIds"
@@ -298,7 +298,7 @@ export function FormulaireEvenement({
           {repetitions.map((repetition, index) => (
             <li
               key={repetition.cle}
-              className="rounded-[var(--radius-doux)] border border-bordure p-3"
+              className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium">Repetition {index + 1}</p>

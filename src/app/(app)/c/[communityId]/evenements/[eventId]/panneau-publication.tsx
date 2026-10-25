@@ -153,7 +153,7 @@ export function PanneauPublication({
             </div>
 
             {vue.event.state !== "annule" && vue.event.state !== "archive" ? (
-              <div className="rounded-[var(--radius-doux)] border border-bordure p-3">
+              <div className="rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3">
                 <Champ
                   label="Motif d'annulation"
                   htmlFor="motif"

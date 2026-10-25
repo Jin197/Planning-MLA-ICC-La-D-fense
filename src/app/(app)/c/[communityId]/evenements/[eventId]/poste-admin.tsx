@@ -44,7 +44,7 @@ export function ReglagesPoste({
       {ouvert ? (
         <form
           action={action}
-          className="mt-2 space-y-3 rounded-[var(--radius-doux)] border border-bordure p-3"
+          className="mt-2 space-y-3 rounded-[var(--radius-doux)] bg-ivoire-fonce/60 p-3"
         >
           <input type="hidden" name="communityId" value={communityId} />
           <input type="hidden" name="eventId" value={eventId} />

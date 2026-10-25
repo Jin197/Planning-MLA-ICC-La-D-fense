@@ -75,7 +75,7 @@ export default async function PageMembres({
             </div>
             <button
               type="submit"
-              className="min-h-11 rounded-[var(--radius-doux)] border border-bordure-forte px-4"
+              className="min-h-11 rounded-[var(--radius-doux)] bg-ivoire-fonce/60-forte px-4"
             >
               Rechercher
             </button>
