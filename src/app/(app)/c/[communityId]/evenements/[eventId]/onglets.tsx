@@ -39,13 +39,13 @@ export function OngletsEvenement({
                   className={cn(
                     "inline-flex min-h-11 items-center gap-2 border-b-2 px-3 text-sm",
                     estActif
-                      ? "border-indigo-accent font-medium text-indigo-fonce"
+                      ? "border-accent font-medium text-accent-fort"
                       : "border-transparent text-nuit-doux hover:text-nuit",
                   )}
                 >
                   {onglet.label}
                   {onglet.id === "discussion" && messagesNonLus > 0 ? (
-                    <span className="rounded-full bg-indigo-accent px-1.5 text-xs font-semibold text-sur-accent">
+                    <span className="rounded-full bg-accent px-1.5 text-xs font-semibold text-sur-accent">
                       {messagesNonLus}
                     </span>
                   ) : null}

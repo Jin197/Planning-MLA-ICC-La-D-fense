@@ -9,7 +9,7 @@ import {
   CardBody,
   CardHeader,
   EtatVide,
-  FiletDore,
+  FiletSignature,
 } from "@/components/ui/primitives";
 import { VueAgenda } from "./vue-agenda";
 import { VueCalendrier } from "./vue-calendrier";
@@ -47,14 +47,14 @@ export default async function PagePlanning({
           <p className="text-sm text-nuit-doux">{community?.name}</p>
           <h1 className="mt-0.5 text-2xl font-semibold sm:text-3xl">Planning</h1>
           <div className="mt-3">
-            <FiletDore />
+            <FiletSignature />
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sans-impression">
           {planning.estAdmin ? (
             <Link
               href={`/c/${communityId}/evenements/nouveau`}
-              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-sur-accent"
+              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-accent px-4 py-2 text-sur-accent"
             >
               <CalendarPlus aria-hidden="true" className="size-4" />
               Nouvel evenement
@@ -104,7 +104,7 @@ export default async function PagePlanning({
                 planning.estAdmin ? (
                   <Link
                     href={`/c/${communityId}/evenements/nouveau`}
-                    className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-sur-accent"
+                    className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-accent px-4 py-2 text-sur-accent"
                   >
                     Creer un evenement
                   </Link>

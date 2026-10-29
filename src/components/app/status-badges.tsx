@@ -59,7 +59,7 @@ export function BadgeAffectation({ etat }: { etat: AssignmentState }) {
 
 const ETAT_TON: Record<EventState, BadgeTon> = {
   brouillon: "neutre",
-  collecte: "indigo",
+  collecte: "accent",
   publie: "dispo",
   annule: "indispo",
   archive: "neutre",
@@ -77,5 +77,5 @@ export function BadgeType({ type, autre }: { type: string; autre?: string | null
     INTEGRATION: "Integration",
     AUTRE: autre ? `Autre - ${autre}` : "Autre",
   };
-  return <Badge ton="or">{libelles[type] ?? type}</Badge>;
+  return <Badge ton="secondaire">{libelles[type] ?? type}</Badge>;
 }

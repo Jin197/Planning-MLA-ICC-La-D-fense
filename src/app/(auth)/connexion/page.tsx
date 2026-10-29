@@ -35,13 +35,13 @@ export default async function PageConnexion({
           <FormulaireConnexion />
           <div className="mt-6 space-y-2 text-sm">
             <p>
-              <Link href="/mot-de-passe-oublie" className="text-indigo-accent underline">
+              <Link href="/mot-de-passe-oublie" className="text-accent underline">
                 Mot de passe oublie
               </Link>
             </p>
             <p className="text-nuit-doux">
               Pas encore de compte ?{" "}
-              <Link href="/inscription" className="text-indigo-accent underline">
+              <Link href="/inscription" className="text-accent underline">
                 Creer un compte
               </Link>
             </p>

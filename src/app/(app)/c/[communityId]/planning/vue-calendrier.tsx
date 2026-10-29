@@ -126,7 +126,7 @@ export function VueCalendrier({ planning }: { planning: VuePlanning }) {
                             <li key={`${evenement.id}-${index}`}>
                               <Link
                                 href={`/c/${planning.communityId}/evenements/${evenement.id}`}
-                                className="block truncate rounded bg-indigo-clair px-1.5 py-0.5 text-[0.7rem] text-indigo-fonce"
+                                className="block truncate rounded bg-accent-pale px-1.5 py-0.5 text-[0.7rem] text-accent-fort"
                                 title={`${evenement.title} - ${evenement.heure}`}
                               >
                                 {evenement.heure} {evenement.title}
@@ -174,7 +174,7 @@ export function VueCalendrier({ planning }: { planning: VuePlanning }) {
                         className="flex items-center justify-between gap-2 rounded-[var(--radius-doux)] bg-ivoire-fonce px-3 py-2 text-sm"
                       >
                         <span className="min-w-0 truncate">{evenement.title}</span>
-                        <Badge ton="indigo">{evenement.heure}</Badge>
+                        <Badge ton="accent">{evenement.heure}</Badge>
                       </Link>
                     </li>
                   ))}

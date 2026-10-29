@@ -50,7 +50,7 @@ export function SePositionner({
         <p className="mt-2 text-sm text-nuit-doux">
           Vous tenez deja :{" "}
           {mesPostes.map((poste) => (
-            <Badge key={poste.assignmentId} ton="indigo" className="mr-1">
+            <Badge key={poste.assignmentId} ton="accent" className="mr-1">
               {poste.label} - {poste.teamName}
             </Badge>
           ))}

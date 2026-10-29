@@ -15,7 +15,7 @@ import {
   Card,
   CardBody,
   CardHeader,
-  FiletDore,
+  FiletSignature,
 } from "@/components/ui/primitives";
 import { BadgeEtatEvenement } from "@/components/app/status-badges";
 import { OngletsEvenement } from "./onglets";
@@ -103,7 +103,7 @@ export default async function PageEvenement({
               : ""}
           </p>
           <div className="mt-3">
-            <FiletDore />
+            <FiletSignature />
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">

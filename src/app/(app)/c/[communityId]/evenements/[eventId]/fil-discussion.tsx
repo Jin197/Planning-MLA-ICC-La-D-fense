@@ -125,8 +125,8 @@ export function FilDiscussion({
   return (
     <div className="space-y-5">
       {epingle ? (
-        <div className="rounded-[var(--radius-doux)] border border-or/30 bg-or-pale px-4 py-3">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-or">
+        <div className="rounded-[var(--radius-doux)] border border-secondaire/30 bg-secondaire-pale px-4 py-3">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-secondaire">
             <Pin aria-hidden="true" className="size-3.5" />
             Annonce epinglee
           </p>
@@ -163,7 +163,7 @@ export function FilDiscussion({
                     Modere
                   </Badge>
                 ) : null}
-                {message.pinned ? <Badge ton="or">Epingle</Badge> : null}
+                {message.pinned ? <Badge ton="secondaire">Epingle</Badge> : null}
               </p>
               <p className="mt-1 whitespace-pre-line break-words">{message.body}</p>
 

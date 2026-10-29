@@ -90,7 +90,7 @@ export function VueTableau({ planning }: { planning: VuePlanning }) {
                             etat={cellule?.disponibilite ?? "a_renseigner"}
                           />
                           {(cellule?.postes ?? []).map((poste, index) => (
-                            <Badge key={`${poste}-${index}`} ton="indigo">
+                            <Badge key={`${poste}-${index}`} ton="accent">
                               {poste}
                             </Badge>
                           ))}
@@ -148,7 +148,7 @@ export function VueTableau({ planning }: { planning: VuePlanning }) {
                       </span>
                       <span className="font-medium">{colonne.label}</span>
                       {(cellule?.postes ?? []).length > 0 ? (
-                        <span className="ml-2 text-xs text-indigo-fonce">
+                        <span className="ml-2 text-xs text-accent-fort">
                           {(cellule?.postes ?? []).join(", ")}
                         </span>
                       ) : null}

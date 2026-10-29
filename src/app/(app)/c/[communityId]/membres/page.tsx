@@ -113,13 +113,13 @@ export default async function PageMembres({
                       {membre.firstName} {membre.lastName}
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1.5">
-                      <Badge ton={membre.role === "admin" ? "indigo" : "neutre"}>
+                      <Badge ton={membre.role === "admin" ? "accent" : "neutre"}>
                         {membre.role === "admin" ? "Admin" : "Membre"}
                       </Badge>
                       {membre.upcomingTeams.map((equipe) => (
                         <Badge
                           key={`${equipe.eventId}-${equipe.teamName}`}
-                          ton="or"
+                          ton="secondaire"
                           titre={`Equipe de l'evenement « ${equipe.eventTitle} »`}
                         >
                           {equipe.teamName}
@@ -189,7 +189,7 @@ export default async function PageMembres({
         />
         <CardBody>
           <p className="text-sm text-nuit-doux">
-            Les etiquettes dorees ci-dessus indiquent les equipes auxquelles une
+            Les etiquettes rouges ci-dessus indiquent les equipes auxquelles une
             personne appartient sur les evenements a venir. Pour composer une
             equipe, ouvrez l&apos;evenement et son onglet « Equipes et postes ».
           </p>

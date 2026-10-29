@@ -11,7 +11,7 @@ import {
   CardBody,
   CardHeader,
   EtatVide,
-  FiletDore,
+  FiletSignature,
 } from "@/components/ui/primitives";
 import { BadgeAffectation, BadgeEtatEvenement } from "@/components/app/status-badges";
 
@@ -29,7 +29,7 @@ export default async function PageAccueil() {
           {session.profile.firstName} {session.profile.lastName}
         </h1>
         <div className="mt-3">
-          <FiletDore />
+          <FiletSignature />
         </div>
       </header>
 
@@ -58,7 +58,7 @@ export default async function PageAccueil() {
               action={
                 <Link
                   href="/communautes"
-                  className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-sur-accent"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-doux)] bg-accent px-4 py-2 text-sur-accent"
                 >
                   Voir le catalogue <ArrowRight aria-hidden="true" className="size-4" />
                 </Link>
@@ -84,7 +84,7 @@ export default async function PageAccueil() {
                   <p className="font-medium">{tache.communityName}</p>
                   <div className="mt-1.5 flex flex-wrap gap-2">
                     {tache.demandesEnAttente > 0 ? (
-                      <Badge ton="indigo">
+                      <Badge ton="accent">
                         {tache.demandesEnAttente} demande(s) d&apos;adhesion
                       </Badge>
                     ) : null}
@@ -275,7 +275,7 @@ export default async function PageAccueil() {
                       <MessageSquare aria-hidden="true" className="size-4 shrink-0" />
                       <span className="truncate">{message.eventTitle}</span>
                     </span>
-                    <Badge ton="indigo">{message.count} non lu(s)</Badge>
+                    <Badge ton="accent">{message.count} non lu(s)</Badge>
                   </Link>
                 </li>
               ))}

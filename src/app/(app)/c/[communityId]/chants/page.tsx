@@ -101,7 +101,7 @@ export default async function PageChants({
                             href={lien}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 break-all text-sm text-indigo-accent underline"
+                            className="inline-flex items-center gap-1.5 break-all text-sm text-accent underline"
                           >
                             <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
                             {lien}

@@ -38,7 +38,7 @@ export function SelecteurVue({
                 className={cn(
                   "inline-flex min-h-9 items-center rounded-[calc(var(--radius-doux)-2px)] px-3 text-sm",
                   vue === v.id
-                    ? "bg-indigo-accent font-medium text-sur-accent"
+                    ? "bg-accent font-medium text-sur-accent"
                     : "text-nuit-doux hover:bg-ivoire-fonce",
                 )}
               >
@@ -51,7 +51,7 @@ export function SelecteurVue({
 
       <Link
         href={lien(vue, !inclureArchives)}
-        className="text-sm text-indigo-accent underline"
+        className="text-sm text-accent underline"
       >
         {inclureArchives ? "Masquer les archives" : "Afficher les archives"}
       </Link>

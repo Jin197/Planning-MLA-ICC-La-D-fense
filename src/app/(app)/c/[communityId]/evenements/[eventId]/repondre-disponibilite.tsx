@@ -126,7 +126,7 @@ export function RepondreDisponibilite({
               {creneaux[0]!.equipes.map((equipe) => (
                 <Badge
                   key={equipe.teamId}
-                  ton={equipe.jEnFaisPartie ? "indigo" : "neutre"}
+                  ton={equipe.jEnFaisPartie ? "accent" : "neutre"}
                 >
                   {equipe.name}
                   {equipe.jEnFaisPartie ? " - vous" : ""}
@@ -145,7 +145,7 @@ export function RepondreDisponibilite({
                 key={equipe.teamId}
                 type="button"
                 onClick={() => setSelection(creneauxDe(equipe.teamId))}
-                className="min-h-9 rounded-full bg-indigo-clair px-3 text-sm text-indigo-fonce"
+                className="min-h-9 rounded-full bg-accent-pale px-3 text-sm text-accent-fort"
               >
                 Les moments de {equipe.name}
               </button>
@@ -175,7 +175,7 @@ export function RepondreDisponibilite({
                 <li key={creneau.id}>
                   <label
                     className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-[var(--radius-doux)] border px-3 py-2 ${
-                      coche ? "border-indigo-accent bg-indigo-clair" : "border-bordure"
+                      coche ? "border-accent bg-accent-pale" : "border-bordure"
                     }`}
                   >
                     <input
@@ -194,7 +194,7 @@ export function RepondreDisponibilite({
                           {creneau.equipes.map((equipe) => (
                             <Badge
                               key={equipe.teamId}
-                              ton={equipe.jEnFaisPartie ? "indigo" : "neutre"}
+                              ton={equipe.jEnFaisPartie ? "accent" : "neutre"}
                               titre={
                                 equipe.surToutLEvenement
                                   ? "Cette equipe sert sur toute la duree de l'evenement"

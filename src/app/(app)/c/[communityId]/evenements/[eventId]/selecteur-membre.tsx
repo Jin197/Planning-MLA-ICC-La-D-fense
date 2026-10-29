@@ -158,7 +158,7 @@ export function SelecteurMembre({
                       aria-pressed={choisi?.membershipId === candidat.membershipId}
                       className={`flex w-full items-start gap-3 rounded-[var(--radius-doux)] border px-3 py-2 text-left ${
                         choisi?.membershipId === candidat.membershipId
-                          ? "border-indigo-accent bg-indigo-clair"
+                          ? "border-accent bg-accent-pale"
                           : "border-bordure bg-surface"
                       }`}
                     >
@@ -168,7 +168,7 @@ export function SelecteurMembre({
                         <span className="mt-1 flex flex-wrap gap-1.5">
                           <BadgeDisponibilite etat={candidat.availability} />
                           {candidat.matchesSkills ? (
-                            <Badge ton="indigo">Competence declaree</Badge>
+                            <Badge ton="accent">Competence declaree</Badge>
                           ) : (
                             <Badge ton="attente">Hors competence declaree</Badge>
                           )}

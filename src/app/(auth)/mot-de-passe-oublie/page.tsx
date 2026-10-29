@@ -16,7 +16,7 @@ export default function PageOubli() {
       <CardBody className="space-y-4">
         <FormulaireOubli />
         <p className="text-sm">
-          <Link href="/connexion" className="text-indigo-accent underline">
+          <Link href="/connexion" className="text-accent underline">
             Retour a la connexion
           </Link>
         </p>

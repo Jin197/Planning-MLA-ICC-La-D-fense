@@ -9,7 +9,7 @@ import {
   CardBody,
   CardHeader,
   EtatVide,
-  FiletDore,
+  FiletSignature,
 } from "@/components/ui/primitives";
 
 export const metadata: Metadata = { title: "Dress-code" };
@@ -43,7 +43,7 @@ export default async function PageDressCode({
         <p className="text-sm text-nuit-doux">{community?.name}</p>
         <h1 className="mt-0.5 text-2xl font-semibold sm:text-3xl">Dress-code</h1>
         <div className="mt-3">
-          <FiletDore />
+          <FiletSignature />
         </div>
         <p className="mt-3 max-w-prose text-sm text-nuit-doux">
           Theme, ambiance, couleurs, matieres et consigne, par evenement. Le

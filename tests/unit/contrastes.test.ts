@@ -80,24 +80,58 @@ describe("couleurs de texte", () => {
       });
 
       it("l'accent depasse 4,5:1 en texte", () => {
-        const accent = jeton(palette, "indigo-accent");
+        const accent = jeton(palette, "accent");
         expect(contraste(accent, page())).toBeGreaterThanOrEqual(4.5);
         expect(contraste(accent, carte())).toBeGreaterThanOrEqual(4.5);
       });
 
       it("le texte pose sur un aplat d'accent depasse 4,5:1", () => {
         expect(
-          contraste(jeton(palette, "sur-accent"), jeton(palette, "indigo-accent")),
+          contraste(jeton(palette, "sur-accent"), jeton(palette, "accent")),
         ).toBeGreaterThanOrEqual(4.5);
       });
 
-      it("l'or depasse 4,5:1 en texte", () => {
-        const or = jeton(palette, "or");
-        expect(contraste(or, page())).toBeGreaterThanOrEqual(4.5);
-        expect(contraste(or, carte())).toBeGreaterThanOrEqual(4.5);
+      it("la signature depasse 4,5:1 en texte", () => {
+        const signature = jeton(palette, "secondaire");
+        expect(contraste(signature, page())).toBeGreaterThanOrEqual(4.5);
+        expect(contraste(signature, carte())).toBeGreaterThanOrEqual(4.5);
+      });
+
+      /*
+       * Les aplats pales portent du texte : un badge « Epingle » ecrit en
+       * signature sur un fond de signature pale, un etat actif ecrit en
+       * accent fort sur un fond d'accent pale.
+       */
+      it("le texte pose sur un aplat pale depasse 4,5:1", () => {
+        expect(
+          contraste(jeton(palette, "accent-fort"), jeton(palette, "accent-pale")),
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contraste(jeton(palette, "secondaire"), jeton(palette, "secondaire-pale")),
+        ).toBeGreaterThanOrEqual(4.5);
       });
     });
   }
+});
+
+/**
+ * Les deux palettes doivent declarer exactement les memes jetons : un jeton
+ * ajoute d'un seul cote donne une couleur juste dans un theme et heritee —
+ * donc fausse — dans l'autre, sans que rien ne le signale.
+ */
+describe("symetrie des palettes", () => {
+  function jetonsDe(bloc: "clair" | "sombre"): string[] {
+    const debut =
+      bloc === "clair" ? CSS.indexOf("@theme {") : CSS.indexOf('[data-theme="dark"] {');
+    const fin = CSS.indexOf("\n}", debut);
+    return [...CSS.slice(debut, fin).matchAll(/--color-([a-z-]+):/g)]
+      .map((m) => m[1]!)
+      .sort();
+  }
+
+  it("declarent le meme jeu de couleurs", () => {
+    expect(jetonsDe("sombre")).toEqual(jetonsDe("clair"));
+  });
 });
 
 describe("couples d'etat", () => {

@@ -79,7 +79,7 @@ export default async function PageBoiteMail() {
                       Verification :{" "}
                       <Link
                         href={`/verification-email?jeton=${encodeURIComponent(jeton.verification)}`}
-                        className="text-indigo-accent underline"
+                        className="text-accent underline"
                       >
                         {jeton.verification}
                       </Link>
@@ -90,7 +90,7 @@ export default async function PageBoiteMail() {
                       Reinitialisation :{" "}
                       <Link
                         href={`/reinitialiser?jeton=${encodeURIComponent(jeton.reset)}`}
-                        className="text-indigo-accent underline"
+                        className="text-accent underline"
                       >
                         {jeton.reset}
                       </Link>

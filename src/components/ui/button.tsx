@@ -11,11 +11,11 @@ const VARIANTES: Record<Variant, string> = {
   // `sur-accent` vaut blanc en theme clair et bleu nuit en theme sombre :
   // l'aplat d'accent porte toujours un texte lisible.
   principal:
-    "bg-indigo-accent text-sur-accent hover:bg-indigo-fonce border border-transparent",
+    "bg-accent text-sur-accent hover:bg-accent-fort border border-transparent",
   secondaire:
     "bg-surface text-nuit border border-bordure-forte hover:bg-ivoire-fonce",
   discret:
-    "bg-transparent text-indigo-accent border border-transparent hover:bg-indigo-clair",
+    "bg-transparent text-accent border border-transparent hover:bg-accent-pale",
   danger:
     "bg-surface text-indispo-texte border border-bordure-forte hover:bg-indispo-fond",
 };

@@ -109,7 +109,7 @@ export function PanneauPreview({
           <ul className="flex flex-wrap gap-2">
             {preview.sheetsDetected.map((feuille) => (
               <li key={feuille}>
-                <Badge ton="indigo">{feuille}</Badge>
+                <Badge ton="accent">{feuille}</Badge>
               </li>
             ))}
           </ul>

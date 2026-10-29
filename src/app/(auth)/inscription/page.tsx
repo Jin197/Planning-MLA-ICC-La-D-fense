@@ -22,7 +22,7 @@ export default async function PageInscription() {
         <FormulaireInscription />
         <p className="mt-6 text-sm text-nuit-doux">
           Deja un compte ?{" "}
-          <Link href="/connexion" className="text-indigo-accent underline">
+          <Link href="/connexion" className="text-accent underline">
             Se connecter
           </Link>
         </p>

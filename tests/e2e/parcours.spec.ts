@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   communauteMla,
@@ -492,12 +494,36 @@ test.describe("apparence", () => {
     return page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   }
 
+  /*
+   * Ce qui est verifie ici, c'est quelle palette est active, pas une teinte
+   * precise : les valeurs sont donc lues dans la feuille de style plutot
+   * qu'ecrites en dur, et un changement d'identite ne casse pas ces tests
+   * alors qu'il ne change rien au mecanisme.
+   */
+  function jetonDeTheme(bloc: "clair" | "sombre", nom: string): string {
+    const css = readFileSync(join("src", "app", "globals.css"), "utf8");
+    const debut =
+      bloc === "clair"
+        ? css.indexOf("@theme {")
+        : css.indexOf('[data-theme="dark"] {');
+    const contenu = css.slice(debut, css.indexOf("\n}", debut));
+    const trouve = new RegExp(`--color-${nom}:\\s*#([0-9a-f]{6})`).exec(contenu);
+    if (!trouve) throw new Error(`Jeton --color-${nom} absent du bloc ${bloc}.`);
+    const [r, v, b] = [0, 2, 4].map((d) =>
+      Number.parseInt(trouve[1]!.slice(d, d + 2), 16),
+    );
+    return `rgb(${r}, ${v}, ${b})`;
+  }
+
   test("le theme sombre est applique par defaut", async ({ page }) => {
     await connexion(page, "noa.bertrand@exemple.test");
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    // #101729
-    expect(await fondDuCorps(page)).toBe("rgb(16, 23, 41)");
+    expect(await fondDuCorps(page)).toBe(jetonDeTheme("sombre", "ivoire"));
+    // Les deux palettes different vraiment : le test ne passe pas a vide.
+    expect(jetonDeTheme("sombre", "ivoire")).not.toBe(
+      jetonDeTheme("clair", "ivoire"),
+    );
   });
 
   test("le choix clair est applique et conserve d'une page a l'autre", async ({
@@ -513,8 +539,7 @@ test.describe("apparence", () => {
     );
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    // #fbf9f4
-    expect(await fondDuCorps(page)).toBe("rgb(251, 249, 244)");
+    expect(await fondDuCorps(page)).toBe(jetonDeTheme("clair", "ivoire"));
 
     // La preference suit la navigation.
     await page.goto(urlPlanning());
@@ -554,8 +579,9 @@ test.describe("apparence", () => {
       const style = getComputedStyle(element);
       return { texte: style.color, fond: style.backgroundColor };
     });
+    // La feuille force la palette claire, quel que soit le theme choisi.
     expect(couleurs.fond).toBe("rgb(255, 255, 255)");
-    expect(couleurs.texte).toBe("rgb(22, 33, 62)");
+    expect(couleurs.texte).toBe(jetonDeTheme("clair", "nuit"));
   });
 });
 

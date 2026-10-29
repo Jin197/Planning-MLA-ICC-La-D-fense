@@ -63,7 +63,7 @@ export default async function PageImport({
           <ol className="flex flex-wrap gap-2 text-sm">
             {ETAPES.map((etape, index) => (
               <li key={etape} className="flex items-center gap-2">
-                <span className="inline-flex size-6 items-center justify-center rounded-full bg-indigo-clair text-xs font-semibold text-indigo-fonce">
+                <span className="inline-flex size-6 items-center justify-center rounded-full bg-accent-pale text-xs font-semibold text-accent-fort">
                   {index + 1}
                 </span>
                 {etape}
@@ -137,7 +137,7 @@ export default async function PageImport({
                       <td className="border-b border-bordure px-3 py-2">
                         <a
                           href={`/c/${communityId}/import?job=${job.id}`}
-                          className="text-indigo-accent underline"
+                          className="text-accent underline"
                         >
                           {job.filename}
                         </a>

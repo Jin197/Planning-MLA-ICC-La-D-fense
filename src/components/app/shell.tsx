@@ -181,7 +181,7 @@ export function Shell({
 
           <form action="/api/deconnexion" method="post" className="border-t border-bordure px-3 py-3">
             <div className="flex items-center gap-2 px-2 pb-2">
-              <span className="inline-flex size-8 items-center justify-center rounded-full bg-indigo-clair text-xs font-semibold text-indigo-fonce">
+              <span className="inline-flex size-8 items-center justify-center rounded-full bg-accent-pale text-xs font-semibold text-accent-fort">
                 {nav.initials}
               </span>
               <span className="truncate text-sm">
@@ -238,14 +238,14 @@ export function Shell({
                       className={cn(
                         "inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm",
                         estActif(lien.href)
-                          ? "bg-indigo-accent text-sur-accent"
+                          ? "bg-accent text-sur-accent"
                           : "bg-ivoire-fonce text-nuit-doux",
                       )}
                       aria-current={estActif(lien.href) ? "page" : undefined}
                     >
                       {lien.label}
                       {lien.badge ? (
-                        <span className="rounded-full bg-sur-accent/90 px-1.5 text-xs font-semibold text-indigo-accent">
+                        <span className="rounded-full bg-sur-accent/90 px-1.5 text-xs font-semibold text-accent">
                           {lien.badge}
                         </span>
                       ) : null}
@@ -278,7 +278,7 @@ export function Shell({
                     aria-current={actif ? "page" : undefined}
                     className={cn(
                       "flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[0.7rem]",
-                      actif ? "text-indigo-accent" : "text-nuit-doux",
+                      actif ? "text-accent" : "text-nuit-doux",
                     )}
                   >
                     <span className="relative">
@@ -311,7 +311,7 @@ function LienNav({ lien, actif }: { lien: Lien; actif: boolean }) {
         className={cn(
           "flex min-h-11 items-center gap-3 rounded-[var(--radius-doux)] px-3 py-2 text-sm",
           actif
-            ? "bg-indigo-clair font-medium text-indigo-fonce"
+            ? "bg-accent-pale font-medium text-accent-fort"
             : "text-nuit-doux hover:bg-ivoire-fonce",
         )}
       >

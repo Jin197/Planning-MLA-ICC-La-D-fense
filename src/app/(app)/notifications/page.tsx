@@ -61,7 +61,7 @@ export default async function PageNotifications() {
                       <p className="font-medium">
                         {notification.title}
                         {notification.readAt === null ? (
-                          <Badge ton="indigo" className="ml-2">
+                          <Badge ton="accent" className="ml-2">
                             Non lue
                           </Badge>
                         ) : null}

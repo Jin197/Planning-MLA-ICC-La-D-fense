@@ -26,7 +26,7 @@ export default async function PageVerification({
           <p className="text-sm text-nuit-doux">
             Aucun fournisseur d&apos;email n&apos;est configure. Les jetons en
             attente sont listes dans la{" "}
-            <Link href="/dev/boite-mail" className="text-indigo-accent underline">
+            <Link href="/dev/boite-mail" className="text-accent underline">
               boite de developpement
             </Link>
             .

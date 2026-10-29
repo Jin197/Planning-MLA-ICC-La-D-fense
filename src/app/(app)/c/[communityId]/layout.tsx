@@ -26,7 +26,7 @@ export default async function CommunityLayout({
           <EtatVide
             titre="Ce lien ne correspond a aucune communaute"
             action={
-              <Link href="/communautes" className="text-indigo-accent underline">
+              <Link href="/communautes" className="text-accent underline">
                 Retour au catalogue
               </Link>
             }
@@ -52,7 +52,7 @@ export default async function CommunityLayout({
             action={
               <Link
                 href="/communautes"
-                className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-indigo-accent px-4 py-2 text-sur-accent"
+                className="inline-flex min-h-11 items-center rounded-[var(--radius-doux)] bg-accent px-4 py-2 text-sur-accent"
               >
                 Aller au catalogue
               </Link>

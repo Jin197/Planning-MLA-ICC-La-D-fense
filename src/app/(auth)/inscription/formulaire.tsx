@@ -30,13 +30,13 @@ export function FormulaireInscription() {
             </p>
             <Link
               href={`/verification-email?jeton=${encodeURIComponent(etat.extra.jeton)}`}
-              className="mt-3 inline-block text-indigo-accent underline"
+              className="mt-3 inline-block text-accent underline"
             >
               Verifier mon email maintenant
             </Link>
           </div>
         ) : (
-          <Link href="/verification-email" className="text-indigo-accent underline">
+          <Link href="/verification-email" className="text-accent underline">
             Saisir mon jeton de verification
           </Link>
         )}

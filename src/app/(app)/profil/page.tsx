@@ -75,7 +75,7 @@ export default async function PageProfil() {
           {nav.communities.length === 0 ? (
             <p className="text-sm text-nuit-doux">
               Aucune adhesion.{" "}
-              <Link href="/communautes" className="text-indigo-accent underline">
+              <Link href="/communautes" className="text-accent underline">
                 Parcourir le catalogue
               </Link>
               .
@@ -93,7 +93,7 @@ export default async function PageProfil() {
                   >
                     {communaute.name}
                   </Link>
-                  <Badge ton={communaute.role === "admin" ? "indigo" : "neutre"}>
+                  <Badge ton={communaute.role === "admin" ? "accent" : "neutre"}>
                     {communaute.role === "admin" ? "Admin" : "Membre"}
                   </Badge>
                 </li>
@@ -113,7 +113,7 @@ export default async function PageProfil() {
             <strong className="font-medium">{session.profile.email}</strong>
           </p>
           <p>
-            <Link href="/mot-de-passe-oublie" className="text-indigo-accent underline">
+            <Link href="/mot-de-passe-oublie" className="text-accent underline">
               Changer mon mot de passe
             </Link>{" "}
             par le parcours de reinitialisation.
@@ -137,7 +137,7 @@ export default async function PageProfil() {
         <CardHeader titre="Mes exports" />
         <CardBody className="space-y-2 text-sm">
           <p>
-            <a href="/api/moi/calendrier.ics" className="text-indigo-accent underline">
+            <a href="/api/moi/calendrier.ics" className="text-accent underline">
               Telecharger mon calendrier personnel (.ics)
             </a>
           </p>

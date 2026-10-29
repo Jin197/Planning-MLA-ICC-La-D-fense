@@ -58,7 +58,7 @@ export function VueAgenda({ planning }: { planning: VuePlanning }) {
                     actions={
                       <div className="flex flex-wrap items-center gap-2">
                         {evenement.messagesNonLus > 0 ? (
-                          <Badge ton="indigo" icone={<MessageSquare className="size-3" />}>
+                          <Badge ton="accent" icone={<MessageSquare className="size-3" />}>
                             {evenement.messagesNonLus} message(s)
                           </Badge>
                         ) : null}

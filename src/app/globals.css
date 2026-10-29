@@ -7,35 +7,45 @@
    `dark:` : seules les valeurs des jetons changent, ce qui evite d'avoir deux
    verites a maintenir.
 
-   Palette sombre par defaut (bleu nuit). Les contrastes indiques sont
-   calcules selon la formule WCAG, fond de carte pour la palette sombre et
-   fond ivoire pour la palette claire.
+   Identite reprise du logo Air France : un bleu marine profond, un bleu vif
+   pour ce sur quoi on agit, et le rouge de la bande en signature. Le partage
+   des roles suit celui de la marque — le bleu porte l'interface, le rouge
+   ponctue. C'est pourquoi l'accent est bleu et non rouge : un bouton rouge
+   sur « Je suis disponible » se lirait comme une alerte.
+
+   Les noms de jetons disent un role, pas une couleur, pour qu'un changement
+   d'identite reste un changement de ce seul fichier.
+
+   Palette sombre par defaut. Les contrastes indiques sont calcules selon la
+   formule WCAG, sur le fond de carte en palette sombre et sur le fond de page
+   en palette claire ; `tests/unit/contrastes.test.ts` les recalcule depuis ce
+   fichier et echoue si une valeur casse un seuil.
    -------------------------------------------------------------------------- */
 
 @theme {
   /* --- Palette claire (declaree ici, donc disponible par defaut) --------- */
 
-  /* Fonds */
-  --color-ivoire: #fbf9f4;
-  --color-ivoire-fonce: #f3efe6;
+  /* Fonds : le blanc domine, comme sur les supports de la marque. */
+  --color-ivoire: #f1f5fa;
+  --color-ivoire-fonce: #e2e9f3;
   --color-surface: #ffffff;
 
-  /* Texte : 14,8:1 / 7,1:1 / 4,8:1 sur ivoire */
-  --color-nuit: #16213e;
-  --color-nuit-doux: #44506b;
-  --color-nuit-tres-doux: #646e8a;
+  /* Texte : le marine du logo. 14,2:1 / 7,2:1 / 4,7:1 sur le fond de page */
+  --color-nuit: #002157;
+  --color-nuit-doux: #41526f;
+  --color-nuit-tres-doux: #5e6e8a;
 
-  /* Accent indigo : 7,9:1 sur ivoire */
-  --color-indigo-accent: #3f35b5;
-  --color-indigo-fonce: #2a2480;
-  --color-indigo-clair: #eceafb;
-  /* Texte pose sur un aplat d'accent : 8,6:1 */
+  /* Accent : le bleu de la marque, sur ce qui se clique. 7,3:1 */
+  --color-accent: #0b4ea2;
+  --color-accent-fort: #073a7a;
+  --color-accent-pale: #e3edfa;
+  /* Texte pose sur un aplat d'accent : 8,0:1 */
   --color-sur-accent: #ffffff;
 
-  /* Or : reserve aux filets et aux aplats, pas au texte fin */
-  --color-or: #7a5a1c;
-  --color-or-clair: #d9b872;
-  --color-or-pale: #f7efdd;
+  /* Signature : le rouge de la bande. Ponctue, ne porte pas l'interface. */
+  --color-secondaire: #c8102e;
+  --color-secondaire-clair: #e23b50;
+  --color-secondaire-pale: #fce7ea;
 
   /* Etats. Chaque etat a aussi un libelle : jamais la couleur seule. */
   --color-dispo-texte: #14532d;
@@ -66,9 +76,10 @@
   --radius-carte: 0.875rem;
 
   /* Les cartes n'ont pas de contour : c'est l'ombre, avec la difference de
-     surface, qui les detache du fond. */
-  --shadow-carte: 0 1px 2px rgb(22 33 62 / 0.09), 0 2px 10px rgb(22 33 62 / 0.07);
-  --shadow-flottant: 0 8px 24px rgb(22 33 62 / 0.14);
+     surface, qui les detache du fond. Elle est teintee du marine du logo
+     plutot que noire, pour rester dans l'identite. */
+  --shadow-carte: 0 1px 2px rgb(0 33 87 / 0.10), 0 2px 10px rgb(0 33 87 / 0.08);
+  --shadow-flottant: 0 8px 24px rgb(0 33 87 / 0.16);
 }
 
 /* --------------------------------------------------------------------------
@@ -86,27 +97,27 @@
    -------------------------------------------------------------------------- */
 
 :root[data-theme="dark"] {
-  /* Fonds : la page est plus sombre que les cartes, qui ressortent. */
-  --color-ivoire: #101729;
-  --color-ivoire-fonce: #1a2440;
-  --color-surface: #16213e;
+  /* Fonds : la page descend sous le marine du logo, qui devient la carte. */
+  --color-ivoire: #001636;
+  --color-ivoire-fonce: #002045;
+  --color-surface: #002157;
 
-  /* Texte : 13,8:1 / 8,9:1 / 5,4:1 sur la surface des cartes */
-  --color-nuit: #f2efe6;
-  --color-nuit-doux: #b9c2d6;
-  --color-nuit-tres-doux: #8d97ae;
+  /* Texte : 13,9:1 / 8,8:1 / 6,0:1 sur la surface des cartes */
+  --color-nuit: #eef3fa;
+  --color-nuit-doux: #b5c4da;
+  --color-nuit-tres-doux: #91a3bf;
 
-  /* Accent : 8,8:1 sur le fond de page, en texte comme en aplat. */
-  --color-indigo-accent: #a5b4fc;
-  --color-indigo-fonce: #c7d2fe;
-  --color-indigo-clair: #222e52;
-  /* Sur fond sombre, un aplat d'accent porte du texte sombre : 8,8:1 */
-  --color-sur-accent: #101729;
+  /* Accent : le bleu de la marque, eclairci pour tenir sur le marine. 7,0:1 */
+  --color-accent: #7fb2f0;
+  --color-accent-fort: #a9ccf7;
+  --color-accent-pale: #0b3566;
+  /* Sur fond sombre, un aplat d'accent porte du texte sombre : 8,2:1 */
+  --color-sur-accent: #001636;
 
-  /* Or : 9,5:1 en texte sur les cartes */
-  --color-or: #e3c583;
-  --color-or-clair: #c9a765;
-  --color-or-pale: #2a2113;
+  /* Signature : le rouge eclairci pour rester lisible. 6,9:1 sur les cartes */
+  --color-secondaire: #ff8a96;
+  --color-secondaire-clair: #ff6273;
+  --color-secondaire-pale: #3a1220;
 
   /* Etats : 9,6:1 / 8,2:1 / 10,2:1 / 9,6:1 */
   --color-dispo-texte: #86efac;
@@ -125,8 +136,8 @@
 
   /* En sombre, la carte est plus claire que la page : la difference de
      surface fait l'essentiel, l'ombre ne fait qu'asseoir le bloc. */
-  --shadow-carte: 0 1px 2px rgb(0 0 0 / 0.45), 0 2px 10px rgb(0 0 0 / 0.35);
-  --shadow-flottant: 0 8px 24px rgb(0 0 0 / 0.55);
+  --shadow-carte: 0 1px 2px rgb(0 0 0 / 0.50), 0 2px 10px rgb(0 0 0 / 0.38);
+  --shadow-flottant: 0 8px 24px rgb(0 0 0 / 0.58);
 }
 
 @layer base {
@@ -166,9 +177,9 @@
     letter-spacing: -0.01em;
   }
 
-  /* Focus clavier toujours visible, sur fond clair comme sur fond indigo. */
+  /* Focus clavier toujours visible, sur fond clair comme sur aplat d'accent. */
   :focus-visible {
-    outline: 3px solid var(--color-indigo-accent);
+    outline: 3px solid var(--color-accent);
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -253,18 +264,19 @@
    * ne s'imprime pas.
    */
   .feuille-impression {
-    --color-ivoire: #fbf9f4;
-    --color-ivoire-fonce: #f3efe6;
+    --color-ivoire: #f1f5fa;
+    --color-ivoire-fonce: #e2e9f3;
     --color-surface: #ffffff;
-    --color-nuit: #16213e;
-    --color-nuit-doux: #44506b;
-    --color-nuit-tres-doux: #6b7694;
-    --color-indigo-accent: #3f35b5;
+    --color-nuit: #002157;
+    --color-nuit-doux: #41526f;
+    --color-nuit-tres-doux: #5e6e8a;
+    --color-accent: #0b4ea2;
+    --color-secondaire: #c8102e;
     --color-sur-accent: #ffffff;
-    --color-bordure: #cfc6b4;
-    --color-bordure-forte: #a99e88;
+    --color-bordure: #c3ccd9;
+    --color-bordure-forte: #8c99ab;
     background: #ffffff;
-    color: #16213e;
+    color: #002157;
   }
 }
 
@@ -275,7 +287,7 @@
 
   body {
     background: #ffffff;
-    color: #16213e;
+    color: #002157;
   }
 
   .grille-defilante {

@@ -42,51 +42,69 @@ Une seule exception a la bascule : la **version imprimable** garde la palette
 claire quel que soit le theme, via la classe `.feuille-impression`. Un fond
 sombre ne s'imprime pas.
 
+## Identite
+
+La palette reprend celle du **logo Air France** : un bleu marine profond, un
+bleu vif pour ce sur quoi on agit, et le rouge de la bande en signature.
+
+Le partage des roles suit celui de la marque, et ce n'est pas un detail :
+**l'accent est bleu, pas rouge**. Le rouge d'Air France ponctue — la bande du
+logo, un filet sous un titre, une etiquette — mais ne porte pas l'interface.
+Un bouton rouge sur « Je suis disponible » se lirait comme une alerte, et
+entrerait en concurrence avec l'etat « indisponible », qui est rouge lui
+aussi et porte un sens.
+
+Les noms de jetons disent un **role**, pas une couleur : `--color-accent` et
+non `--color-bleu`. Changer d'identite reste ainsi un changement de
+`globals.css` seul.
+
 ## Couleurs - palette claire
 
-Contrastes calcules sur le fond ivoire `#fbf9f4`.
+Contrastes calcules sur le fond de page `#f1f5fa`.
 
 | Jeton | Valeur | Contraste | Usage |
 | --- | --- | --- | --- |
-| `--color-ivoire` | `#fbf9f4` | — | Fond de l'application |
-| `--color-ivoire-fonce` | `#f3efe6` | — | Zones secondaires, lignes paires |
+| `--color-ivoire` | `#f1f5fa` | — | Fond de l'application |
+| `--color-ivoire-fonce` | `#e2e9f3` | — | Zones secondaires, lignes paires |
 | `--color-surface` | `#ffffff` | — | Cartes |
-| `--color-nuit` | `#16213e` | **14,8:1** | Texte principal |
-| `--color-nuit-doux` | `#44506b` | **7,1:1** | Texte secondaire |
-| `--color-nuit-tres-doux` | `#646e8a` | **4,8:1** | Mentions discretes, texte non essentiel |
-| `--color-indigo-accent` | `#3f35b5` | **7,9:1** | Accent, boutons principaux, liens |
-| `--color-indigo-fonce` | `#2a2480` | 11,3:1 | Survol, texte sur fond indigo clair |
-| `--color-indigo-clair` | `#eceafb` | — | Fond d'accent |
-| `--color-or` | `#7a5a1c` | **5,9:1** | Touches dorees, texte dore |
-| `--color-or-clair` | `#d9b872` | — | Filets decoratifs **uniquement** |
+| `--color-nuit` | `#002157` | **14,2:1** | Texte principal, marine du logo |
+| `--color-nuit-doux` | `#41526f` | **7,2:1** | Texte secondaire |
+| `--color-nuit-tres-doux` | `#5e6e8a` | **4,7:1** | Mentions discretes, texte non essentiel |
+| `--color-accent` | `#0b4ea2` | **7,3:1** | Accent, boutons principaux, liens |
+| `--color-accent-fort` | `#073a7a` | 9,4:1 sur accent pale | Survol, texte sur aplat d'accent pale |
+| `--color-accent-pale` | `#e3edfa` | — | Fond d'accent |
+| `--color-secondaire` | `#c8102e` | **5,4:1** | Signature : filets, etiquettes, rouge du logo |
+| `--color-secondaire-clair` | `#e23b50` | — | Aplats decoratifs |
+| `--color-secondaire-pale` | `#fce7ea` | — | Fond d'etiquette de signature |
 | `--color-bordure` | `#e2e2e2` | — | Bords de cadre et separateurs |
 | `--color-bordure-forte` | `#8a8a8a` | **3,5:1** | Champs et composants d'interface |
-| `--color-sur-accent` | `#ffffff` | 8,6:1 sur l'accent | Texte pose sur un aplat d'accent |
+| `--color-sur-accent` | `#ffffff` | 8,0:1 sur l'accent | Texte pose sur un aplat d'accent |
 
 Les trois couleurs de texte depassent 4,5:1 ; les deux premieres depassent 7:1.
-L'or clair ne porte jamais de texte : il est reserve aux filets et aux aplats,
-ou le contraste de texte ne s'applique pas.
+Les variantes claires ne portent jamais de texte : elles sont reservees aux
+filets et aux aplats, ou le contraste de texte ne s'applique pas.
 
 ## Couleurs - palette sombre
 
-Contrastes calcules sur la surface des cartes `#16213e`, sauf mention
+Contrastes calcules sur la surface des cartes `#002157`, sauf mention
 contraire. La page est plus sombre que les cartes, qui ressortent ainsi sans
 avoir besoin d'ombres marquees.
 
 | Jeton | Valeur | Contraste | Usage |
 | --- | --- | --- | --- |
-| `--color-ivoire` | `#101729` | — | Fond de page |
-| `--color-ivoire-fonce` | `#1a2440` | — | Zones secondaires, lignes paires |
-| `--color-surface` | `#16213e` | — | Cartes |
-| `--color-nuit` | `#f2efe6` | **13,8:1** | Texte principal |
-| `--color-nuit-doux` | `#b9c2d6` | **8,9:1** | Texte secondaire |
-| `--color-nuit-tres-doux` | `#8d97ae` | **5,4:1** | Mentions discretes |
-| `--color-indigo-accent` | `#a5b4fc` | **8,8:1** sur la page | Accent, liens, aplats de bouton |
-| `--color-indigo-fonce` | `#c7d2fe` | 8,9:1 sur indigo clair | Survol, texte sur fond d'accent |
-| `--color-indigo-clair` | `#222e52` | — | Fond d'accent |
-| `--color-sur-accent` | `#101729` | **8,8:1** sur l'accent | Texte pose sur un aplat d'accent |
-| `--color-or` | `#e3c583` | **9,5:1** | Touches dorees, texte dore |
-| `--color-or-clair` | `#c9a765` | — | Filets decoratifs |
+| `--color-ivoire` | `#001636` | — | Fond de page |
+| `--color-ivoire-fonce` | `#002045` | — | Zones secondaires, lignes paires |
+| `--color-surface` | `#002157` | — | Cartes, marine du logo |
+| `--color-nuit` | `#eef3fa` | **13,9:1** | Texte principal |
+| `--color-nuit-doux` | `#b5c4da` | **8,8:1** | Texte secondaire |
+| `--color-nuit-tres-doux` | `#91a3bf` | **6,0:1** | Mentions discretes |
+| `--color-accent` | `#7fb2f0` | **7,0:1** | Accent, liens, aplats de bouton |
+| `--color-accent-fort` | `#a9ccf7` | 7,4:1 sur accent pale | Survol, texte sur fond d'accent |
+| `--color-accent-pale` | `#0b3566` | — | Fond d'accent |
+| `--color-sur-accent` | `#001636` | **8,2:1** sur l'accent | Texte pose sur un aplat d'accent |
+| `--color-secondaire` | `#ff8a96` | **6,9:1** | Signature : filets, etiquettes |
+| `--color-secondaire-clair` | `#ff6273` | — | Aplats decoratifs |
+| `--color-secondaire-pale` | `#3a1220` | — | Fond d'etiquette de signature |
 | `--color-bordure` | `#3a3a3a` | — | Bords de cadre et separateurs |
 | `--color-bordure-forte` | `#707070` | **3,2:1** | Champs et composants d'interface |
 
@@ -94,13 +112,13 @@ Trois points ont demande une decision :
 
 - **Les bords de cadre sont achromatiques dans les deux palettes.** Un cadre
   se dessine par une valeur de gris, pas par une teinte : les seules couleurs
-  de l'interface sont alors porteuses de sens — l'accent, l'or, et les quatre
-  etats. Les bords beiges et bleu-gris d'avant entraient en concurrence avec
-  elles.
+  de l'interface sont alors porteuses de sens — l'accent, la signature, et les
+  quatre etats. Les bords beiges et bleu-gris d'avant entraient en concurrence
+  avec elles.
 
 - **Le texte pose sur un aplat d'accent change de couleur selon le theme.**
-  En clair, l'accent est un indigo fonce qui porte du blanc. En sombre,
-  l'accent est un indigo pale, et du blanc dessus serait illisible : il porte
+  En clair, l'accent est un bleu fonce qui porte du blanc. En sombre,
+  l'accent est un bleu pale, et du blanc dessus serait illisible : il porte
   donc du bleu nuit. D'ou le jeton `--color-sur-accent`, qui a remplace tous
   les `text-white` codes en dur.
 - **La bordure forte vise 3:1**, pas 4,5:1. C'est le seuil du critere
@@ -189,7 +207,7 @@ pour les elements flottants.
 
 Cible : **WCAG 2.2 niveau AA**. Mesures en place :
 
-- **Focus visible** partout : contour indigo de 3 px avec decalage de 2 px, et
+- **Focus visible** partout : contour d'accent de 3 px avec decalage de 2 px, et
   contour blanc sur fond fonce.
 - **Lien de saut** vers le contenu principal, premier element au clavier.
   Verifie au navigateur, y compris son effet.
@@ -219,7 +237,7 @@ pas presente comme la regle universelle du niveau AA : le critere
 Les valeurs de ce document ne sont pas declaratives : `tests/unit/contrastes.test.ts`
 les recalcule depuis `globals.css` a chaque execution de la suite. 24
 controles couvrent, pour les deux palettes, le texte principal (7:1), le texte
-secondaire et les mentions (4,5:1), l'accent, l'or, les quatre couples
+secondaire et les mentions (4,5:1), l'accent, la signature, les quatre couples
 d'etat, la bordure des champs (3:1) et le caractere achromatique des bords.
 
 Ce test a d'ailleurs trouve un defaut reel : en palette claire, les mentions
@@ -276,5 +294,5 @@ Verifie au navigateur.
 
 « Diapason » est un nom provisoire, centralise dans `src/lib/brand.ts`. Aucun
 logo officiel n'a ete invente : l'identite se limite a une typographie, une
-palette et un filet dore. Le sous-titre « MLA - ICC La Defense » situe le
+palette et un filet de signature. Le sous-titre « MLA - ICC La Defense » situe le
 contexte sans usurper une identite institutionnelle.

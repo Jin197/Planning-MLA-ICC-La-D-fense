@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
-import { FiletDore } from "@/components/ui/primitives";
+import { FiletSignature } from "@/components/ui/primitives";
 
 export default function AuthLayout({
   children,
@@ -13,7 +13,7 @@ export default function AuthLayout({
             <p className="text-2xl font-semibold tracking-tight">{BRAND.name}</p>
           </Link>
           <div className="mt-2">
-            <FiletDore />
+            <FiletSignature />
           </div>
           <p className="mt-3 text-sm text-nuit-doux">
             {BRAND.tagline} - {BRAND.context}

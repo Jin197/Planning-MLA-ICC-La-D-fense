@@ -74,8 +74,8 @@ export type BadgeTon =
   | "indispo"
   | "attente"
   | "alerte"
-  | "indigo"
-  | "or";
+  | "accent"
+  | "secondaire";
 
 const TONS: Record<BadgeTon, string> = {
   neutre: "bg-ivoire-fonce text-nuit-doux border-bordure-forte",
@@ -83,8 +83,8 @@ const TONS: Record<BadgeTon, string> = {
   indispo: "bg-indispo-fond text-indispo-texte border-indispo-texte/25",
   attente: "bg-attente-fond text-attente-texte border-attente-texte/25",
   alerte: "bg-alerte-fond text-alerte-texte border-alerte-texte/25",
-  indigo: "bg-indigo-clair text-indigo-fonce border-indigo-accent/25",
-  or: "bg-or-pale text-or border-or/25",
+  accent: "bg-accent-pale text-accent-fort border-accent/25",
+  secondaire: "bg-secondaire-pale text-secondaire border-secondaire/25",
 };
 
 /**
@@ -135,7 +135,7 @@ export function Avatar({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full bg-indigo-clair font-semibold text-indigo-fonce",
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-accent-pale font-semibold text-accent-fort",
         taille === "petit" ? "size-7 text-[0.7rem]" : "size-9 text-sm",
       )}
       aria-hidden="true"
@@ -153,7 +153,7 @@ export function Avatar({
 export type AlerteTon = "info" | "succes" | "attention" | "erreur";
 
 const ALERTE_STYLES: Record<AlerteTon, string> = {
-  info: "border-indigo-accent/30 bg-indigo-clair text-indigo-fonce",
+  info: "border-accent/30 bg-accent-pale text-accent-fort",
   succes: "border-dispo-texte/30 bg-dispo-fond text-dispo-texte",
   attention: "border-alerte-texte/30 bg-alerte-fond text-alerte-texte",
   erreur: "border-indispo-texte/30 bg-indispo-fond text-indispo-texte",
@@ -307,11 +307,12 @@ export function Separateur({ className }: { className?: string }) {
   return <hr className={cn("border-t border-bordure", className)} />;
 }
 
-export function FiletDore() {
+/**
+ * Petite bande sous un titre : la signature rouge du logo, reprise comme
+ * ponctuation. Purement decorative, donc masquee aux lecteurs d'ecran.
+ */
+export function FiletSignature() {
   return (
-    <div
-      aria-hidden="true"
-      className="h-0.5 w-12 rounded-full bg-or-clair"
-    />
+    <div aria-hidden="true" className="h-0.5 w-12 rounded-full bg-secondaire" />
   );
 }
